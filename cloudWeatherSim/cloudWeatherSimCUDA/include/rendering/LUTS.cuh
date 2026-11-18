@@ -175,16 +175,16 @@ __device__ __inline__ float4 getAtmosphericAerialView(float3 dir, float3 pos, fl
     // Small lerp when close to ground to get smoother result.
     result.w = (1 - weight) + result.w * weight;
 
-    if (debug)
-    {
-        printf("UV: %f, %f, s %f t %f, dir: %f, %f, %f depth %f\n",
-            uv.x,
-            uv.y,
-            s,
-            t,
-            dir.x, dir.y, dir.z,
-            depth);
-    }
+    //if (debug)
+    //{
+    //    printf("UV: %f, %f, s %f t %f, dir: %f, %f, %f depth %f\n",
+    //        uv.x,
+    //        uv.y,
+    //        s,
+    //        t,
+    //        dir.x, dir.y, dir.z,
+    //        depth);
+    //}
 
     return result;  
 }

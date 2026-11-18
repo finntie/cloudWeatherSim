@@ -1125,7 +1125,7 @@ __global__ void calculateEnvMicroPhysicsGPU(simParams p, float* _Qv, float* _Qw,
         }
 
         //Is ground?
-        if (y <= _groundHeight[idxG]) continue;
+        if (y <= _groundHeight[idxG]) valid = false;
         //if (x == simSizeX - 1) continue; //TODO: Right side is not fully working due to pressure project 
 
 

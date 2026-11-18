@@ -309,7 +309,7 @@ void simulationEditor::updateSkewT(bool skewTView)
 
 void simulationEditor::controls() 
 {
-    // -----------------------Update camera when holding shift---------------------
+    // -----------------------Disable camera when brushing or selecting---------------------
 
     if (m_brushing || m_selecting)
     {
@@ -317,7 +317,7 @@ void simulationEditor::controls()
         else CloudHub.CameraObj().disable();
     }
 
-    // -----------------------Update camera when holding shift---------------------
+    // -----------------------Cancelling actions when right clicking---------------------
 
     if (CloudHub.InputObj().mouseOnce(newInput::MOUSE_RIGHT))
     {
@@ -326,9 +326,7 @@ void simulationEditor::controls()
     }
 
 
-    //------------------------------------------------------------------------------
     //-------------------------Scroll through slices--------------------------------
-    //------------------------------------------------------------------------------
 
     if (m_viewSlice && CloudHub.InputObj().keyDown(newInput::LEFT_CONTROL) && m_mouseWheel != CloudHub.InputObj().mouseScroll())
     {
@@ -491,6 +489,13 @@ void simulationEditor::viewParamsPanel()
 
 void simulationEditor::slicePanel() 
 {
+    static bool startOpen = false;
+    if (!startOpen) 
+    {
+        startOpen = true;
+        ImGui::SetNextItemOpen(true);
+    }
+
     if (ImGui::TreeNode("View-Slice"))
     {
         static int sliceMaxCoord = m_params.sizeX - 1;

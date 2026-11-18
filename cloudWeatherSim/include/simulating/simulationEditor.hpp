@@ -123,7 +123,7 @@ private:
     // Viewing Settings
     bool m_viewSlice{true};
     bool m_viewGround{false};
-    bool m_viewSky{false};
+    bool m_viewSky{true};
     bool m_wireFrame{false};
     // X = 0, Y = 1, Z = 2
     int m_viewSliceCoord{0};

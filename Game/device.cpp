@@ -32,14 +32,24 @@ device::device()
 	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-#if defined(DEBUG)
+#if defined(_DEBUG)
 	glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
 #else
 	glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_FALSE);
 #endif
 	glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
+	
 
+#if defined(_DEBUG)
 	m_window = glfwCreateWindow(1960, 1080, "CloudWeatherSimulation Example", NULL, NULL);
+#else
+	const GLFWvidmode* mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
+	glfwWindowHint(GLFW_RED_BITS, mode->redBits);
+	glfwWindowHint(GLFW_GREEN_BITS, mode->greenBits);
+	glfwWindowHint(GLFW_BLUE_BITS, mode->blueBits);
+	glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
+	m_window = glfwCreateWindow(mode->width, mode->height, "CloudWeatherSimulation Example", glfwGetPrimaryMonitor(), NULL);
+#endif
 	if (!m_window)
 	{
 		printf("Failed to create a window\n");

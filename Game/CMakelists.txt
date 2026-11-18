@@ -38,6 +38,9 @@ target_include_directories(game
         ${CMAKE_CURRENT_SOURCE_DIR}/external
 )
 
+if(MSVC)
+    target_link_options(game PRIVATE /NODEFAULTLIB:LIBCMT)
+endif()
 
 # Create macro to gain assets directory
 target_compile_definitions(game PRIVATE

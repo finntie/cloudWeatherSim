@@ -57,6 +57,7 @@ void skewTMaker::loadData(std::vector<float>& temp, std::vector<float>& dew, std
 	m_simpleWindSpeed.value = windSpeed;
 	m_simpleWindSpeed.pressure = pressure;
 	m_windDir = windDir;
+	m_skewTReady = true;
 }
 
 void skewTMaker::update(float dt)
@@ -84,7 +85,7 @@ void skewTMaker::update(float dt)
 
 bool skewTMaker::skewTMakerPanel(simParams params)
 {
-    if (ImGui::Button("Confirm SkewT"))
+    if (ImGui::Button("Confirm SkewT") && m_skewTReady)
     {
         CloudHub.CameraObj().enable();
         confirmSkewT(params);
@@ -839,7 +840,6 @@ void skewTMaker::selectUnselectCursor()
 {
     // If cursor is near
     m_cursorSize = 0.5f;
-	printf("m_mousePos3D: %f, %f, %f\n", m_mousePos3D.x, m_mousePos3D.y, m_mousePos3D.z);
     if (!m_cursorActive && distance(m_mousePos3D, m_cursorPos) <= 1.5f)
     {
         m_cursorSize = 0.6f;

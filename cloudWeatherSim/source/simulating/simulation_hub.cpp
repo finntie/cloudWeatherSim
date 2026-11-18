@@ -25,7 +25,6 @@ simulationHub::simulationHub(const simParams& params) : m_params(params)
     m_environmentObj = new environmentGPU(params);
     m_simulationEditObj = new simulationEditor(params);
 
-
 }
 
 simulationHub::~simulationHub() 
@@ -334,14 +333,14 @@ bool simulationHub::chooseObservedSounding(bool init)
 
     static int currentYear = -1;
     ImGui::PushItemWidth(ImGui::CalcTextSize("  0000  ").x);
-    if (ImGui::ListBox("##Year", &currentYear, getter, &availableYears, int(availableYears.size()), 10))
+    if (ImGui::ListBox("##Year", &currentYear, getter, &availableYears, int(availableYears.size()), 31))
     {
         m_skewTFileObj->getAvailableMonths(availableYears[currentYear], availableMonths);
     }
     ImGui::SameLine();
 
     static int currentMonth = -1;
-    if (ImGui::ListBox("##Month", &currentMonth, getter, &availableMonths, int(availableMonths.size()), 12))
+    if (ImGui::ListBox("##Month", &currentMonth, getter, &availableMonths, int(availableMonths.size()), 31))
     {
         m_skewTFileObj->getAvailableDays(availableYears[currentYear],
                                                          availableMonths[currentMonth],
@@ -352,7 +351,7 @@ bool simulationHub::chooseObservedSounding(bool init)
     static int currentDay = -1;
     static int fileAmount = 0;
     static std::vector<bool> selected(fileAmount, false);
-    if (ImGui::ListBox("##Day", &currentDay, getter, &availableDays, int(availableDays.size()), 10))
+    if (ImGui::ListBox("##Day", &currentDay, getter, &availableDays, int(availableDays.size()), 31))
     {
         m_skewTFileObj->getAvailableFiles(availableYears[currentYear],
                                                           availableMonths[currentMonth],

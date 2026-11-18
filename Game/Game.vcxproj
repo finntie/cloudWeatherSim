@@ -123,8 +123,9 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(OutputPath);$(ProjectDir)external;$(ProjectDir)external/GLFW;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>cloudWeatherSim.lib;cloudWeatherSimCUDA.lib;glfw3.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(OutputPath);$(ProjectDir)external;$(ProjectDir)external/GLFW;$(CUDA_PATH_V12_9)/lib/x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>cloudWeatherSim.lib;cloudWeatherSimCUDA.lib;glfw3.lib;cudart_static.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalOptions>/NODEFAULTLIB:LIBCMT %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <Manifest>
       <EnableSegmentHeap>true</EnableSegmentHeap>
@@ -152,10 +153,10 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(OutputPath);$(ProjectDir)external;$(ProjectDir)external/GLFW;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>cloudWeatherSim.lib;cloudWeatherSimCUDA.lib;glfw3.lib;ucrt.lib;vcruntime.lib;msvcrt.lib;msvcprt.lib;imm32.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalOptions>/NODEFAULTLIB %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalDependencies>cloudWeatherSim.lib;cloudWeatherSimCUDA.lib;glfw3.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OptimizeReferences>true</OptimizeReferences>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <AdditionalOptions>/NODEFAULTLIB:LIBCMT %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <Manifest>
       <EnableSegmentHeap>true</EnableSegmentHeap>

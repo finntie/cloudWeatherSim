@@ -292,6 +292,23 @@ void cameraControl::controllingTheCamera(float dt)
             // Casual P = O + D*T
             setCamPos(getCamPos() + dir * difference);
         }
+
+        //------------------------------------------------------------------------------
+        //--------------------------Extra binds-----------------------------------------
+        //------------------------------------------------------------------------------
+
+        // If control and R reset the camera position back
+        if (LeftCrtl && CloudHub.InputObj().keyDownOnce(newInput::R))
+        {
+            // Set camera Position based on guessed grid size
+            glm::vec3 pos = glm::vec3(128, 128, 128) * 128.0f;
+            glm::vec3 normPos = glm::normalize(pos);
+            pos = normPos * distance(pos, glm::vec3(0.0f)) * 1.5f;
+            glm::quat rotation = glm::quatLookAt(-normPos, glm::vec3(0, 1, 0));
+            CloudHub.CameraObj().setCamPos(pos);
+            CloudHub.CameraObj().setCamRot(rotation);
+        }
+
     }
 }
 

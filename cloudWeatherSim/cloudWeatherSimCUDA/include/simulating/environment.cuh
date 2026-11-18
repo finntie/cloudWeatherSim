@@ -179,7 +179,10 @@ private:
 	float* m_precon; //Precon (pressure projection)
 #ifdef GPU_COMPILER // Only GPU variable
 	float4* m_A; //A matrix (pressure projection)
+#else 
+	float* dummy;
 #endif
+
 	//Single values
 	float* m_singleStor0;
 	float* m_sigma0;

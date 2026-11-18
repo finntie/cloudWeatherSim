@@ -82,9 +82,9 @@ private:
 	float lerpValues(const simpleData& data, const std::vector<float>& pressures, const int i, const int idxAt, const bool windDir, glm::vec2& windDirection);
 
 	// Internal Camera data
-    glm::vec3 m_cameraPos;
-    glm::quat m_cameraRot;
-    glm::mat4 m_camProjection;
+	glm::vec3 m_cameraPos{};
+	glm::quat m_cameraRot{};
+	glm::mat4 m_camProjection{};
 	
 	glm::vec2 m_skewTSize{ 100, 100 };
 	glm::vec2 m_skewTPos{ -50, -50 };
@@ -121,7 +121,7 @@ private:
 	bool m_skewTConfirmed{ false };
 	bool m_usingHodograph{ false };
 
-	skewTParams m_currentParam;
+	skewTParams m_currentParam{ TEMPERATURE };
 	bool m_editing{ false };
 	int m_editingPoint{ -1 };
 

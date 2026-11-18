@@ -12,7 +12,7 @@ set_property(CACHE GPU_BACKEND PROPERTY STRINGS CUDA AMD)
 # Depending on CUDA or AMD
 if (GPU_BACKEND STREQUAL "CUDA")
     if (NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
-        set(CMAKE_CUDA_ARCHITECTURES 75 86 89) # Set default architectures
+        set(CMAKE_CUDA_ARCHITECTURES 75 86 89 120) # Set default architectures
     endif()
     project(cloudWeatherSim LANGUAGES C CXX CUDA) # Set project with CUDA as language
 

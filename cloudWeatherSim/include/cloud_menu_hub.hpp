@@ -56,7 +56,6 @@ public:
     // Getters
     bool getIsPanelSelected() { return m_panelSelected; }
 
-
 private:
 
     void initializeImGuiStyle();

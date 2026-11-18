@@ -558,23 +558,23 @@ __global__ void renderEnvironmentCUDAGPU(unsigned int* dOutput,
             make_float4(output.x / 255.0f, output.y / 255.0f, output.z / 255.0f, output.w) * lightTransmittance;
         geometryColor = make_float4(outputGeometryColor.x, outputGeometryColor.y, outputGeometryColor.z, data.useAlpha ? outputGeometryColor.w : 1.0f);
 
-                if (x == int(float(width) / 2.0f) && y == int(float(height) / 2.0f))
-        {
-            printf(
-                "x %i y %i, t %f, outputColor  x %f y %f z %f, geometryColor: x %f y %f z %f "
-                "lightTransmittance %f "
-                "\n ",
-                x,
-                y,
-                t,
-                outputColor.x,
-                outputColor.y,
-                outputColor.z,
-                geometryColor.x,
-                geometryColor.y,
-                geometryColor.z,
-                lightTransmittance);
-        }
+        //        if (x == int(float(width) / 2.0f) && y == int(float(height) / 2.0f))
+        //{
+        //    printf(
+        //        "x %i y %i, t %f, outputColor  x %f y %f z %f, geometryColor: x %f y %f z %f "
+        //        "lightTransmittance %f "
+        //        "\n ",
+        //        x,
+        //        y,
+        //        t,
+        //        outputColor.x,
+        //        outputColor.y,
+        //        outputColor.z,
+        //        geometryColor.x,
+        //        geometryColor.y,
+        //        geometryColor.z,
+        //        lightTransmittance);
+        //}
 
     }
     else if (t < 1e33f)
@@ -921,34 +921,34 @@ __global__ void renderEnvironmentCUDAGPU(unsigned int* dOutput,
     if (hitGround)
     {
         // Set ground color
-        outputColor = make_float4(0.67f, 0.44f, 0.2f, 1.0f);
+        //outputColor = make_float4(0.67f, 0.44f, 0.2f, 1.0f);
 
         //float4 skycolor = make_float4(powf(outputColor.x, 2.2f), powf(outputColor.y, 2.2f), powf(outputColor.z, 2.2f), 1.0f);
         //skyLinear = (skycolor / (1.0f - skycolor)) / data.settings.exposure;
         // Add Aerial to the background
-        skyLinear = outputColor * aerialColorSky.w + make_float4(aerialColorSky.x, aerialColorSky.y, aerialColorSky.z, 0.0f);
+        //skyLinear = outputColor * aerialColorSky.w + make_float4(aerialColorSky.x, aerialColorSky.y, aerialColorSky.z, 0.0f);
     }
 
     
 
-    if (x == int(float(width) / 2.0f) && y == int(float(height) / 2.0f))
-    {
-        printf("skyLinear: %f, %f, %f, depth %f, aerialColorCloud %f, %f, %f, %f, posmain %f, %f, %f, posI %f, %f, %f T: %f\n",
-            skyLinear.x,
-            skyLinear.y,
-            skyLinear.z,
-            aerialDepth,
-            aerialColorCloud.x,
-            aerialColorCloud.y,
-            aerialColorCloud.z,
-        aerialColorCloud.w, 
-            mainR.O.x,
-            mainR.O.y,
-            mainR.O.z,
-            iPoint.x,
-            iPoint.y,
-            iPoint.z, T);
-    }
+    //if (x == int(float(width) / 2.0f) && y == int(float(height) / 2.0f))
+    //{
+    //    printf("skyLinear: %f, %f, %f, depth %f, aerialColorCloud %f, %f, %f, %f, posmain %f, %f, %f, posI %f, %f, %f T: %f\n",
+    //        skyLinear.x,
+    //        skyLinear.y,
+    //        skyLinear.z,
+    //        aerialDepth,
+    //        aerialColorCloud.x,
+    //        aerialColorCloud.y,
+    //        aerialColorCloud.z,
+    //    aerialColorCloud.w, 
+    //        mainR.O.x,
+    //        mainR.O.y,
+    //        mainR.O.z,
+    //        iPoint.x,
+    //        iPoint.y,
+    //        iPoint.z, T);
+    //}
     
     skyLinear = clamp4f(skyLinear, 0.0f, 1.0f);
     skyLinear = make_float4(powf(skyLinear.x, 2.2f), powf(skyLinear.y, 2.2f), powf(skyLinear.z, 2.2f), 1.0f);
@@ -1184,11 +1184,14 @@ __device__ float lightMarch(float3 pos, const float3& lightDir, environmentData&
     float3 normPos = make_float3(pos.x / gridMax.x, pos.y / gridMax.y, pos.z / gridMax.z);
     float distanceFieldValueQw = 0.0f;
     float distanceFieldValueQs = 0.0f;
+    float distanceFieldValueQr = 0.0f;
     // Already check distance field for first step
     distanceFieldValueQw = fmaxf(tex3D<float>(toTexObj(data.SDFTextureQw), normPos.x, normPos.y, normPos.z) - 0.75f, 0.0f) * voxelSize;
     distanceFieldValueQs = fmaxf(tex3D<float>(toTexObj(data.SDFTextureQs), normPos.x, normPos.y, normPos.z) - 0.75f, 0.0f) * voxelSize;
+    distanceFieldValueQr = fmaxf(tex3D<float>(toTexObj(data.SDFTextureQr), normPos.x, normPos.y, normPos.z) - 0.75f, 0.0f) * voxelSize;
     bool closeQw = false;
     bool closeQs = false;
+    bool closeQr = false;
     //float prevDFieldValueQw = 0.0f;
     //float distanceFieldValueQr = 0.0f;
 
@@ -1206,7 +1209,7 @@ __device__ float lightMarch(float3 pos, const float3& lightDir, environmentData&
 
     // Extinction Coëfficiënt divided by Mass concentration, in m2/kg
     const float keQw = 150.0f;
-    //const float keQr = 3.0f;
+    const float keQr = 3.0f;
     const float keQs = 30.0f;
 
     while (1)
@@ -1219,9 +1222,10 @@ __device__ float lightMarch(float3 pos, const float3& lightDir, environmentData&
 
         if (distanceFieldValueQw <= lightStepSize) closeQw = true;
         if (distanceFieldValueQs <= lightStepSize) closeQs = true;
+        if (distanceFieldValueQr <= lightStepSize) closeQr = true;
 
         const float cloudCoverage = closeQw ? calculateCloudCoverage(pos, data) : 0.0f;
-        //float rainCoverage = calculateRainCoverage(pos, data); Ignoring rain for now since it does not add much and is much slower
+        float rainCoverage = closeQr ? calculateRainCoverage(pos, data) : 0.0f;
         float snowCoverage = closeQs ? calculateSnowCoverage(pos, data) : 0.0f;
 
         // Maybe if we want to erode, but that seems not needed and unnecessary expensive
@@ -1232,7 +1236,7 @@ __device__ float lightMarch(float3 pos, const float3& lightDir, environmentData&
         // By converting mixing ratio (kg/kg) to mass (kg/m3) using air density
         // Then using the extinction coëfficient, we convert to our mass extinction coëfficient (1/m)
         const float sigmaQw = cloudDens * airDens * keQw;
-        const float sigmaQr = 0.0f;//rainCoverage * airDens * keQr;
+        const float sigmaQr = rainCoverage * airDens * keQr;
         const float sigmaQs = snowCoverage * airDens * keQs;
 
         // Calculate total extinction
@@ -1257,10 +1261,11 @@ __device__ float lightMarch(float3 pos, const float3& lightDir, environmentData&
         // We loop until distance to nearest cloud becomes too small and start normal stepping again
         distanceFieldValueQw = 0.0f;
         distanceFieldValueQs = 0.0f;
+        distanceFieldValueQr = 0.0f;
         while (!isOutside(pos.x, pos.y, pos.z))
         {
             // Push position forwards into the light direction
-            float distance = fmaxf(fminf(distanceFieldValueQw, distanceFieldValueQs), lightStepSize);
+            float distance = fmaxf(fminf(distanceFieldValueQw, fminf(distanceFieldValueQs, distanceFieldValueQr)), lightStepSize);
             t += distance;
             pos = pos + lightDir * distance;
             normPos = make_float3(pos.x / gridMax.x, pos.y / gridMax.y, pos.z / gridMax.z);
@@ -1268,6 +1273,7 @@ __device__ float lightMarch(float3 pos, const float3& lightDir, environmentData&
             // Get Distance Field Value to check if we are out of the cloud and how far away we can move freely
             distanceFieldValueQw = fmaxf(tex3D<float>(toTexObj(data.SDFTextureQw), normPos.x, normPos.y, normPos.z) - 0.75f, 0.0f) * voxelSize;
             distanceFieldValueQs = fmaxf(tex3D<float>(toTexObj(data.SDFTextureQs), normPos.x, normPos.y, normPos.z) - 0.75f, 0.0f) * voxelSize;
+            distanceFieldValueQr = fmaxf(tex3D<float>(toTexObj(data.SDFTextureQr), normPos.x, normPos.y, normPos.z) - 0.75f, 0.0f) * voxelSize;
 
             // Increase stepsize if no cloud is nearby
             standardStepSize =
@@ -1308,7 +1314,7 @@ __device__ float lightMarch(float3 pos, const float3& lightDir, environmentData&
             // If Distance Field Value is smaller than our stepsize, we go back to calculating
             // distanceFieldValueQr = tex3D<float>(data.SDFTextureQr, normPos.x, normPos.y, normPos.z);
             // const float closest = fminf(distanceFieldValueQw, distanceFieldValueQr);
-            if (distanceFieldValueQw <= lightStepSize || distanceFieldValueQs <= lightStepSize) break;
+            if (distanceFieldValueQw <= lightStepSize || distanceFieldValueQs <= lightStepSize || distanceFieldValueQr <= lightStepSize) break;
         }
 
         //if (x == halfSize.x && y == halfSize.y)

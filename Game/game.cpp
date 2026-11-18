@@ -65,9 +65,7 @@ void game::imguiUpdate()
 	ImGui_ImplGlfw_NewFrame();
 	ImGui::NewFrame();
 
-	ImGui::Begin("Game");
 	cloudWeatherSim::updateUIImGui();
-	ImGui::End();
 
 	ImGui::Render();
 	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());

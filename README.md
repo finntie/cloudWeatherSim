@@ -31,7 +31,7 @@ The executable has another simple project compiled with the library which just c
 
 ## Install
 
-**Pre-build executables** can be found [on my website](https://finntie.github.io), this skips the need to compile the whole source code if you just want to check out the project and play with the simulation.
+**Pre-build executables** can be found [on my website](https://finntie.github.io/pages/Downloads/CloudWeatherSim.html), this skips the need to compile the whole source code if you just want to check out the project and play with the simulation.
 
 To use this project as a **library** for your own program, there are many different options to choose from, this is to make sure the library is compiled correctly for your target hardware.  
 The next few steps are for installing the library or generating an executable.  
@@ -155,12 +155,49 @@ The depth buffer has to be logarithmic (for now) to make sure that the far plane
 This means that for your possible shaders, you will have to use some different code: [StackOverflow discussion](https://stackoverflow.com/questions/22364930/logarithmic-depth-buffer-opengl) on how to do it.
 
 
-## Limitations
+
+## Version 0.1
+
+The current version is 0.1, this is the beta release version of the library. 
+
+### Features
+
+Current features include:
+- Creating environments from drawing skew-T diagrams
+- Loading environments from observed soundings, supported are KNMI and DWD files. These can be put in assets->input->DWD or KNMI
+- Simulating the environment from 1 to 100 times the normal speed
+- Viewing all parameters using the debug viewer
+- Editing the simulation by brushing or selecting with the selected parameter
+- Viewing a skew-T diagram from a voxel upwards when pressing space on a voxel
+- With the data graph, select a region of voxels in which it will track all phase changes and write them on a graph
+- Saving the simulation by recording frames and saving them on disk
+- Loading simulation that were saved in assets->output
+- Changing render settings on the go (some settings will make the renderer very slow)
+
+### Bugs
+
+- When finishing temperature and dewpoint of the skew-T diagram and going into the hodograph, the cursor might not be there.
+- The current simulation is not fail proof, there is always a small chance of your simulation crashing, especially at high velocity values.  
+    If this continues to happen, make sure to report this.
+- You can confirm an environment that you have not finished creating, this creates a corrupt environment, you will have to restart the program to reset.
+- When going under the ground, zooming in or out will be reversed and may cause some confusion (press CRTL + R to reset cam position and rotation).
+- Debug view and clouds are not correctly synced up.
+
+If you come across other bugs and issues, make sure to report these issues by sending a message on [X](https://x.com/Finntie2) or via discord (finnie_1). 
+
+### Other Limitations
 
 - As the clouds are post-processing, it is not possible to show the clouds in any reflective objects you draw.
 
 - The shadows from clouds do not take into account blocking of other geometry, making the underside of object also have shadows from clouds. 
 
+- Not all input files for observed soundings are supported, KNMI and DWD only for now, and DWD only zip files that include metadata.
+
+- The current version uses **one** resolution and gridsize only, this will in the future made changable before creating a simulation.
+
+- With good render settings, the fps can get very low, especially when up close to rain/snow together with clouds.
+
+- The simulation is based inside a gridfield, this grid is likely about 64x64x64 big. On the edges of this simulation, clouds may behave differently due to the boundary conditions.
 
 ## Using the Library
 
@@ -198,3 +235,10 @@ You can play with the render settings to change the look of the clouds.
 If wanting to use the library's code, you will mainly work with saved simulation that you want to render during the gameplay.  
 To start, take a look at the [game example](https://github.com/finntie/skewTCloudSim/tree/useLib/Game).  
 **More in depth code explainer will come soon**
+
+
+## Contact
+
+Contact me via X or Discord:  
+X: https://x.com/Finntie2  
+Discord: finnie_1  
