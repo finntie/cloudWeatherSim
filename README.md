@@ -99,7 +99,7 @@ Only few GPUs are tested, if the library does not run on your hardware, make sur
 
 **AMD Build**  
 - **[ROCm](https://rocm.docs.amd.com/en/latest/install/rocm.html?fam=all&w=compute&os=windows&i=pip&windows-ver=11)**, if building for **AMD** from **windows**, ROCm does need to be installed. Compiling from **AMD** can skip this step. 
-- **[HIP 7.2](https://rocm.docs.amd.com/projects/install-on-windows/en/latest/install/install.html)**, The full HIP SDK is needed to compile the HIP code. Version 7.2 is needed with plugins to Visual Studio 2022.
+- **[HIP SDK](https://www.amd.com/en/developer/resources/rocm-hub/hip-sdk.html)**, The full HIP SDK is needed to compile the HIP code. Version 6.4.2 is adviced with plugins to Visual Studio 2022.
 
 **Intel**  
 Not supported (yet?).  
