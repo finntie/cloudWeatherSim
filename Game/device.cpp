@@ -7,6 +7,9 @@
 
 #include <iostream>
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "external/stb_image.h"
+
 #include <cloudWeatherSim/cloud_weather_sim.hpp>
 
 
@@ -58,9 +61,16 @@ device::device()
 	glfwWindowHint(GLFW_GREEN_BITS, mode->greenBits);
 	glfwWindowHint(GLFW_BLUE_BITS, mode->blueBits);
 	glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
-	//glfwWindowHint(GLFW_AUTO_ICONIFY, GLFW_FALSE); // Disable minimizing when unfocusing.
+	glfwWindowHint(GLFW_AUTO_ICONIFY, GLFW_FALSE); // Disable minimizing when unfocusing.
 	m_window = glfwCreateWindow(mode->width, mode->height, "CloudWeatherSimulation Example", glfwGetPrimaryMonitor(), NULL);
 #endif
+
+	// Add Logo as Image Icon using stbi image
+	GLFWimage images[1];
+	images[0].pixels = stbi_load("assets/LogoImage.png", &images[0].width, &images[0].height, 0, 4); //rgba channels 
+	glfwSetWindowIcon(m_window, 1, images);
+	stbi_image_free(images[0].pixels);
+
 	if (!m_window)
 	{
 		printf("Failed to create a window\n");

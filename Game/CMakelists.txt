@@ -51,3 +51,6 @@ install(TARGETS game RUNTIME DESTINATION bin)
 
 # Install the imgui assets, so the ImGui font can be used
 install(DIRECTORY assets/ImGui/ DESTINATION bin/assets/ImGui)
+
+# Install icon
+install(FILES assets/LogoImage.png DESTINATION bin/assets/)
