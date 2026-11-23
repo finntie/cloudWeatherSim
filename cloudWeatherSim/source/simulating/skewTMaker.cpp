@@ -713,9 +713,11 @@ void skewTMaker::visualizeAndConfirmCursor()
 		if (m_targetPos.z == -(m_skewTPos.y + m_skewTSize.y))
 		{
 			m_cursorActive = false;
+			if (m_currentParam == TEMPERATURE) m_tempReady = true;
+			else if (m_currentParam == DEWPOINT) m_dewReady = true;
+			if (m_tempReady && m_dewReady) m_skewTReady = true;
 			if (m_currentParam == TEMPERATURE) m_currentParam = DEWPOINT, updateCursor(true);
 			else if (m_currentParam == DEWPOINT) m_currentParam = TEMPERATURE, updateCursor(true);
-			if (m_simpleTemps.pressure.size() == m_simpleDews.pressure.size()) m_skewTReady = true;
 		}
 	}
 

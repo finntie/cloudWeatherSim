@@ -33,12 +33,12 @@ static void RenderQuad();
 CudaRender::CudaRender(const simParams& params) : m_params(params)
 {
     // Check if we are running on NVIDIA:
-    const char* vendor = reinterpret_cast<const char*>(glGetString(GL_VENDOR));
-    if (std::strstr(vendor, "NVIDIA") == nullptr)
-    {
-        printf("Error, current vendor: '%s', not supported, use NVIDIA\n", vendor);
-        return;
-    }
+    //const char* vendor = reinterpret_cast<const char*>(glGetString(GL_VENDOR));
+    //if (std::strstr(vendor, "NVIDIA") == nullptr)
+    //{
+    //    printf("Error, current vendor: '%s', not supported, use NVIDIA\n", vendor);
+    //    return;
+    //}
     // Init render stream
     initStream();
 }
@@ -100,7 +100,7 @@ void CudaRender::initGL(int width, int height)
         hipError_t err = hipGetLastError();
         if (err != hipSuccess)
         {
-            std::cerr << "error: " << hipGetErrorString(err) << std::endl;
+            std::cerr << "error cuda_render_gl.cpp initGL(): " << hipGetErrorString(err) << std::endl;
             assert(false);
         }
 
@@ -108,6 +108,18 @@ void CudaRender::initGL(int width, int height)
         //glDeleteBuffers(1, &PBO);
         //glDeleteTextures(1, &m_texture);
     }
+
+    // Get GL devices, for AMD important to make sure GL is mapped together with HIP
+    unsigned int count = 0;
+    int devices[8] = {};
+    hipError_t err = hipGLGetDevices(&count, devices, 8, hipGLDeviceListAll);
+    if (err != hipSuccess)
+    {
+        std::cerr << "error cuda_render_gl.cpp initGL() 2: " << hipGetErrorString(err) << std::endl;
+        assert(false);
+    }
+
+
 
     // Create Pixel buffer object
     if (!m_finalPBO) glGenBuffers(1, &m_finalPBO);
@@ -139,12 +151,11 @@ void CudaRender::initGL(int width, int height)
     }
     // Register with CUDA
     hipGraphicsResource_t res = nullptr;
-    hipGraphicsGLRegisterBuffer(&res, m_finalPBO, hipGraphicsRegisterFlagsWriteDiscard);
+    err = hipGraphicsGLRegisterBuffer(&res, m_finalPBO, hipGraphicsRegisterFlagsWriteDiscard);
     cudaPBOResource = static_cast<void*>(res);
-    hipError_t err = hipGetLastError();
     if (err != hipSuccess)
     {
-        std::cerr << "error: " << hipGetErrorString(err) << std::endl;
+        std::cerr << "error cuda_render_gl.cpp initGL() 3: " << hipGetErrorString(err) << std::endl;
         assert(false);
     }
 
@@ -398,7 +409,7 @@ void CudaRender::initOpenGLCUDAInterop(unsigned int finalFrameBuffer, unsigned i
     hipError_t err = hipGetLastError();
     if (err != hipSuccess)
     {
-        std::cerr << "error: " << hipGetErrorString(err) << std::endl;
+        std::cerr << "error cuda_render_gl.cpp initOpenGLCUDAInterop(): " << hipGetErrorString(err) << std::endl;
         assert(false);
     }
 }
@@ -444,7 +455,7 @@ unsigned int CudaRender::postRenderClouds(int width, int height)
     err = hipGetLastError();
     if (err != hipSuccess)
     {
-        std::cerr << "error: " << hipGetErrorString(err) << std::endl;
+        std::cerr << "error cuda_render_gl.cpp postRenderClouds(): " << hipGetErrorString(err) << std::endl;
         assert(false);
     }
 
@@ -489,7 +500,7 @@ unsigned int CudaRender::postRenderClouds(int width, int height)
         err = hipGetLastError();
         if (err != hipSuccess)
         {
-            std::cerr << "error: " << hipGetErrorString(err) << std::endl;
+            std::cerr << "error cuda_render_gl.cpp postRenderClouds() 2: " << hipGetErrorString(err) << std::endl;
             assert(false);
         }
 
@@ -500,7 +511,7 @@ unsigned int CudaRender::postRenderClouds(int width, int height)
         err = hipGetLastError();
         if (err != hipSuccess)
         {
-            std::cerr << "error: " << hipGetErrorString(err) << std::endl;
+            std::cerr << "error cuda_render_gl.cpp postRenderClouds() 3: " << hipGetErrorString(err) << std::endl;
             assert(false);
         }
 
@@ -552,7 +563,7 @@ unsigned int CudaRender::postRenderClouds(int width, int height)
     err = hipGetLastError();
     if (err != hipSuccess)
     {
-        std::cerr << "error: " << hipGetErrorString(err) << std::endl;
+        std::cerr << "error cuda_render_gl.cpp postRenderClouds() 4: " << hipGetErrorString(err) << std::endl;
         assert(false);
     }
 
@@ -567,7 +578,7 @@ void CudaRender::unregisterResources()
     hipError_t err = hipGetLastError();
     if (err != hipSuccess)
     {
-        std::cerr << "error: " << hipGetErrorString(err) << std::endl;
+        std::cerr << "error cuda_render_gl.cpp unregisterResources(): " << hipGetErrorString(err) << std::endl;
         assert(false);
     }
 }
@@ -611,7 +622,7 @@ void CudaRender::render()
     hipError_t err = hipGetLastError();
     if (err != hipSuccess)
     {
-        std::cerr << "error: " << hipGetErrorString(err) << std::endl;
+        std::cerr << "error cuda_render_gl.cpp render(): " << hipGetErrorString(err) << std::endl;
         assert(false);
     }
 
@@ -637,7 +648,7 @@ void CudaRender::render()
         err = hipGetLastError();
         if (err != hipSuccess)
         {
-            std::cerr << "error: " << hipGetErrorString(err) << std::endl;
+            std::cerr << "error cuda_render_gl.cpp render() 2: " << hipGetErrorString(err) << std::endl;
             assert(false);
         }
 
@@ -651,7 +662,7 @@ void CudaRender::render()
     err = hipGetLastError();
     if (err != hipSuccess)
     {
-        std::cerr << "error: " << hipGetErrorString(err) << std::endl;
+        std::cerr << "errorcuda_render_gl.cpp render() 3: " << hipGetErrorString(err) << std::endl;
         assert(false);
     }
 }
@@ -780,7 +791,7 @@ void CudaRender::setNewRenderSize(int width, int height)
         hipError_t err = hipGetLastError();
         if (err != hipSuccess)
         {
-            std::cerr << "error: " << hipGetErrorString(err) << std::endl;
+            std::cerr << "error cuda_render_gl.cpp setNewRenderSize(): " << hipGetErrorString(err) << std::endl;
             assert(false);
         }
 
@@ -1007,7 +1018,7 @@ void CudaRender::initEnvironmentData()
     hipError_t err = hipGetLastError();
     if (err != hipSuccess)
     {
-        std::cerr << "error: " << hipGetErrorString(err) << std::endl;
+        std::cerr << "error cuda_render_gl.cpp initEnvironmentData(): " << hipGetErrorString(err) << std::endl;
         assert(false);
     }
 
@@ -1025,7 +1036,7 @@ void CudaRender::setExtraRenderInfo(renderSettings settings, bool changedTexture
         hipError_t err = hipGetLastError();
         if (err != hipSuccess)
         {
-            std::cerr << "error: " << hipGetErrorString(err) << std::endl;
+            std::cerr << "error cuda_render_gl.cpp setExtraRenderInfo(): " << hipGetErrorString(err) << std::endl;
             assert(false);
         }
     }
@@ -1162,7 +1173,7 @@ void CudaRender::setDataEnvironmentEvent(gridDataSkyGPU& data, bool updateSDF, v
     hipError_t err = hipGetLastError();
     if (err != hipSuccess)
     {
-        std::cerr << "error: " << hipGetErrorString(err) << std::endl;
+        std::cerr << "error cuda_render_gl.cpp seetDataEnvironmentEvent(): " << hipGetErrorString(err) << std::endl;
         assert(false);
     }
 }

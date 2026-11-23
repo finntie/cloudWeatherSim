@@ -16,6 +16,15 @@ void error_callback(int error, const char* description)
 	fprintf(stderr, "Error: %s\n", description);
 }
 
+bool changeWindowSize{ false };
+void keyCallbackDevice(GLFWwindow* win, int key, int scan, int action, int mods)
+{
+	if (key == GLFW_KEY_F11 && action == GLFW_PRESS)
+	{
+		changeWindowSize = true;
+	}
+}
+
 device::device()
 {
 	if (!glfwInit())
@@ -43,11 +52,13 @@ device::device()
 #if defined(_DEBUG)
 	m_window = glfwCreateWindow(1960, 1080, "CloudWeatherSimulation Example", NULL, NULL);
 #else
+	//m_window = glfwCreateWindow(1960, 1080, "CloudWeatherSimulation Example", NULL, NULL); // Windowed
 	const GLFWvidmode* mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
 	glfwWindowHint(GLFW_RED_BITS, mode->redBits);
 	glfwWindowHint(GLFW_GREEN_BITS, mode->greenBits);
 	glfwWindowHint(GLFW_BLUE_BITS, mode->blueBits);
 	glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
+	//glfwWindowHint(GLFW_AUTO_ICONIFY, GLFW_FALSE); // Disable minimizing when unfocusing.
 	m_window = glfwCreateWindow(mode->width, mode->height, "CloudWeatherSimulation Example", glfwGetPrimaryMonitor(), NULL);
 #endif
 	if (!m_window)
@@ -56,6 +67,7 @@ device::device()
 		return;
 	}
 	glfwMakeContextCurrent(m_window);
+	glfwSetKeyCallback(m_window, keyCallbackDevice);
 
 	// Init glad
 	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
@@ -74,6 +86,24 @@ device::~device()
 
 void device::renderInit()
 {
+	// Change window if F11 was pressed
+	if (changeWindowSize)
+	{
+		GLFWmonitor* monitor = glfwGetWindowMonitor(m_window);
+		if (!monitor)
+		{
+			GLFWmonitor* prim = glfwGetPrimaryMonitor();
+			const GLFWvidmode* mode = glfwGetVideoMode(prim);
+			glfwSetWindowMonitor(m_window, prim, 0, 0, mode->width, mode->height, mode->refreshRate);
+		}
+		else
+		{
+			glfwSetWindowMonitor(m_window, nullptr, 100, 100, 1960, 1080, GLFW_DONT_CARE);
+		}
+		changeWindowSize = false;
+	}
+
+
 	glfwGetFramebufferSize(m_window, &m_width, &m_height);
 
 	glViewport(0, 0, m_width, m_height);

@@ -37,7 +37,57 @@ To use this project as a **library** for your own program, there are many differ
 The next few steps are for installing the library or generating an executable.  
 Installing this library yourself means there are some specific programs needed to be installed in order for the code to compile:
 
-### Tools Necessary to Compile
+
+### Supported Hardware and Software
+
+**Windows**  
+The current AMD and NVIDIA builds have been tested on a Windows device only, on a NVIDIA RTX 5700.  
+This includes compiling and using the library.  
+
+**Linux**  
+Linux is currently not supported as it has not been tested yet but is planned for the future.  
+
+
+**NVIDIA**  
+NVIDIA is supported, as it uses CUDA code (Hipified for AMD support).  
+
+Compute Capabilities: 
+- 75 
+- 86 
+- 89 
+- 120 
+
+This includes the following GPUs
+- The NVIDIA RTX PRO series
+- GeForce RTX 2000, 3000, 4000 and 5000 series
+- QUADRO RTX series
+- NVIDIA RTX series
+
+If not sure if your GPU is includes, compare it on the NVIDIA site:
+https://developer.nvidia.com/cuda/gpus (compute capability 12.0 = 120)
+
+**AMD**  
+AMD is supported due to the use of HIP.  
+The build is tested with HIP SDK 6, make sure your driver supports amdhip64_6.dll, if it supports amdhip64_7.dll, the build needs to be compiled with HIP SDK 7. Versions lower than 6 are not tested. 
+
+| GFX target | Example GPU | Status |
+|---|---|---|
+| gfx1010 | RX 5700 | Tested, not officially supported by AMD |
+| gfx1030 | RX 6800 | Untested |
+| gfx1031 | RX 6700 | Tested |
+| gfx1032 | RX 6600 | Untested |
+| gfx1100 | RX 7900 | Untested |
+| gfx1101 | RX 7800/7700 | Untested |
+| gfx1102 | RX 7600 | Untested,  Possibly not supported with HIP SDK 6|
+| gfx1200 / gfx1201 | RX 9060 / 9070 | Untested,  Possibly not supported with HIP SDK 6 |
+
+
+Most GPUs are not tested, yet cards with the same gfx target as listed should work. If your GPU was not listed or you are not sure, check if your GPU corresponds to any listed gfx version.  
+
+**Warning**  
+Only few GPUs are tested, if the library does not run on your hardware, make sure to report this so it can be looked into and hopefully be supported soon.
+
+### Build Requirements
   
 
 **General**  
@@ -242,3 +292,12 @@ To start, take a look at the [game example](https://github.com/finntie/skewTClou
 Contact me via X or Discord:  
 X: https://x.com/Finntie2  
 Discord: finnie_1  
+
+
+## Screenshots
+
+![alt text](ReadMePics/NormalScreenshot4.png)
+![alt text](ReadMePics/NormalScreenshot1.png)
+![alt text](ReadMePics/NormalScreenshot2.png)
+![alt text](ReadMePics/NormalScreenshot3.png)
+

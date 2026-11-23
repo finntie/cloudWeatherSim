@@ -178,7 +178,7 @@ void environmentGPU::allocateData()
 
 	hipError_t err = hipGetLastError();
 	if (err != hipSuccess) {
-		std::cerr << "error: " << hipGetErrorString(err) << std::endl;
+		std::cerr << "error environment.cu allocateData(): " << hipGetErrorString(err) << std::endl;
 		assert(false);
 	}
 
@@ -264,7 +264,7 @@ void environmentGPU::allocateData()
 	hipStreamSynchronize(simStream);
 	err = hipGetLastError();
 	if (err != hipSuccess) {
-		std::cerr << "Cuda error: " << hipGetErrorString(err) << std::endl;
+		std::cerr << "error envirnoment.cu allocateData() 2: " << hipGetErrorString(err) << std::endl;
 		assert(false);
 	}
 
@@ -373,7 +373,7 @@ void environmentGPU::freeData()
 	hipStreamSynchronize(simStream);
 	hipError_t err = hipGetLastError();
 	if (err != hipSuccess) {
-		std::cerr << "Cuda error: " << hipGetErrorString(err) << std::endl;
+		std::cerr << "error environment.cu freeData: " << hipGetErrorString(err) << std::endl;
 		assert(false);
 	}
 
@@ -396,7 +396,7 @@ void environmentGPU::init(float* potTemps, glm::vec3* velField, float* Qv, float
 	//First check
 	hipError_t err = hipGetLastError();
 	if (err != hipSuccess) {
-		std::cerr << "error: " << hipGetErrorString(err) << std::endl;
+		std::cerr << "error environment.cu init() : " << hipGetErrorString(err) << std::endl;
 		assert(false);
 	}
 
@@ -451,7 +451,7 @@ void environmentGPU::init(float* potTemps, glm::vec3* velField, float* Qv, float
 
 	err = hipGetLastError();
 	if (err != hipSuccess) {
-		std::cerr << "Cuda error: " << hipGetErrorString(err) << std::endl;
+		std::cerr << "error environment.cu init() 2: " << hipGetErrorString(err) << std::endl;
 		assert(false);
 	}
 
@@ -467,7 +467,7 @@ void environmentGPU::init(float* potTemps, glm::vec3* velField, float* Qv, float
 	PNoise2D(100, noise, m_params.sizeX, m_params.sizeZ, 12);
 	err = hipGetLastError();
 	if (err != hipSuccess) {
-		std::cerr << "Cuda error: " << hipGetErrorString(err) << std::endl;
+		std::cerr << "error environment.cu init() 3: " << hipGetErrorString(err) << std::endl;
 		assert(false);
 	}
 	hipMemcpyAsync(noiseGPU, noise, m_params.sizeGround * sizeof(float), hipMemcpyHostToDevice, simStream);
@@ -480,7 +480,7 @@ void environmentGPU::init(float* potTemps, glm::vec3* velField, float* Qv, float
 
 	err = hipGetLastError();
 	if (err != hipSuccess) {
-		std::cerr << "Cuda error: " << hipGetErrorString(err) << std::endl;
+		std::cerr << "error environment.cu init() 4: " << hipGetErrorString(err) << std::endl;
 		assert(false);
 	}
 
@@ -503,7 +503,7 @@ void environmentGPU::init(float* potTemps, glm::vec3* velField, float* Qv, float
 	hipStreamSynchronize(simStream);
 	err = hipGetLastError();
 	if (err != hipSuccess) {
-		std::cerr << "Cuda error: " << hipGetErrorString(err) << std::endl;
+		std::cerr << "error environment.cu init() 5: " << hipGetErrorString(err) << std::endl;
 		assert(false);
 	}
 
@@ -513,7 +513,7 @@ void environmentGPU::init(float* potTemps, glm::vec3* velField, float* Qv, float
 	hipStreamSynchronize(simStream);
 	err = hipGetLastError();
 	if (err != hipSuccess) {
-		std::cerr << "Cuda error: " << hipGetErrorString(err) << std::endl;
+		std::cerr << "error environment.cu init() 6: " << hipGetErrorString(err) << std::endl;
 		assert(false);
 	}
 
@@ -535,7 +535,7 @@ void environmentGPU::init(float* potTemps, glm::vec3* velField, float* Qv, float
 	hipStreamSynchronize(simStream);
 	err = hipGetLastError();
 	if (err != hipSuccess) {
-		std::cerr << "Cuda error: " << hipGetErrorString(err) << std::endl;
+		std::cerr << "error environment.cu init() 7: " << hipGetErrorString(err) << std::endl;
 		assert(false);
 	}
 }
@@ -564,7 +564,7 @@ void environmentGPU::updateGPU(const float dt, const float speed)
 	hipStreamSynchronize(simStream);
 	err = hipGetLastError();
 	if (err != hipSuccess) {
-		std::cerr << "Cuda error: " << hipGetErrorString(err) << std::endl;
+		std::cerr << "error environment.cu updateGPU(): " << hipGetErrorString(err) << std::endl;
 		assert(false);
 	}
 
@@ -577,7 +577,7 @@ void environmentGPU::updateGPU(const float dt, const float speed)
 	hipStreamSynchronize(simStream);
 	err = hipGetLastError();
 	if (err != hipSuccess) {
-		std::cerr << "Cuda error: " << hipGetErrorString(err) << std::endl;
+		std::cerr << "error environment.cu updateGPU() 2: " << hipGetErrorString(err) << std::endl;
 		assert(false);
 	}
 
@@ -592,34 +592,19 @@ void environmentGPU::updateGPU(const float dt, const float speed)
 
 		// 1.
 		advectGroundWater(dt, speed);
-		hipStreamSynchronize(simStream);
-		err = hipGetLastError();
-		if (err != hipSuccess) {
-			std::cerr << "Cuda error: " << hipGetErrorString(err) << std::endl;
-			assert(false);
-		}
+
 		// 2.
 		groundCoverageFactor();
-		err = hipGetLastError();
-		if (err != hipSuccess) {
-			std::cerr << "Cuda error: " << hipGetErrorString(err) << std::endl;
-			assert(false);
-		}
 
 		// 3.
 		updateGroundTemps(dt, speed, irridiance);
-		err = hipGetLastError();
-		if (err != hipSuccess) {
-			std::cerr << "Cuda error: " << hipGetErrorString(err) << std::endl;
-			assert(false);
-		}
 
 		// 4.
 		microPhysicsGroundGPU(dt, speed, irridiance);
 		hipStreamSynchronize(simStream);
 		err = hipGetLastError();
 		if (err != hipSuccess) {
-			std::cerr << "Cuda error: " << hipGetErrorString(err) << std::endl;
+			std::cerr << "error environment.cu updateGPU() 3: " << hipGetErrorString(err) << std::endl;
 			assert(false);
 		}
 	}
@@ -640,7 +625,7 @@ void environmentGPU::updateGPU(const float dt, const float speed)
 		advectPPMWGPU(m_envGrid.potTemp, m_isentropicTemp, BOUNDSTEMP, dt * speed);
 		err = hipGetLastError();
 		if (err != hipSuccess) {
-			std::cerr << "Cuda error: " << hipGetErrorString(err) << std::endl;
+			std::cerr << "error environment.cu updateGPU() 4: " << hipGetErrorString(err) << std::endl;
 			assert(false);
 		}
 

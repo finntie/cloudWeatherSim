@@ -271,7 +271,7 @@ void fillLUTSOnce(environmentData& data,
     hipError_t err = hipGetLastError();
     if (err != hipSuccess)
     {
-        std::cerr << "error: " << hipGetErrorString(err) << std::endl;
+        std::cerr << "error cuda_render.cu fillLUTSOnce(): " << hipGetErrorString(err) << std::endl;
         assert(false);
     }
 }
@@ -343,7 +343,7 @@ void fillLUTS(environmentData& data, void* skyViewLUT, void* aerialViewLUT, bool
     hipError_t err = hipGetLastError();
     if (err != hipSuccess)
     {
-        std::cerr << "error: " << hipGetErrorString(err) << std::endl;
+        std::cerr << "error cuda_render.cu fillLUTS() : " << hipGetErrorString(err) << std::endl;
         assert(false);
     }
 }
@@ -408,7 +408,7 @@ void renderEnvironmentCUDA(simParams p,
         hipError_t err = hipGetLastError();
         if (err != hipSuccess)
         {
-            std::cerr << "error: " << hipGetErrorString(err) << std::endl;
+            std::cerr << "error cuda_render.cu renderEnvironmentCUDA(): " << hipGetErrorString(err) << std::endl;
             assert(false);
         }
     }

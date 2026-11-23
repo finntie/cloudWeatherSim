@@ -115,7 +115,7 @@ void setConstantsMicroPhys(float _invBlockSpreadDepth, void* stream)
     if (_invBlockSpreadDepth > 0.0f) hipMemcpyToSymbolAsync(HIP_SYMBOL(invBlockSpreadDepth), &_invBlockSpreadDepth, sizeof(float), 0, hipMemcpyHostToDevice, static_cast<hipStream_t>(stream));
     hipError_t err = hipGetLastError();
     if (err != hipSuccess) {
-        std::cerr << "error2: " << hipGetErrorString(err) << std::endl;
+        std::cerr << "error setConstantsMicroPhys: " << hipGetErrorString(err) << std::endl;
         assert(false);
     }
 }

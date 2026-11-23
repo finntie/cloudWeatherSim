@@ -117,6 +117,8 @@ private:
 	float m_maxZoom = 1.0f;
 	glm::vec3 m_zeroCamPos{ 0, 100, 0 }; // Start pos of camera
 
+	bool m_tempReady{ false };
+	bool m_dewReady{ false };
 	bool m_skewTReady{ false };
 	bool m_skewTConfirmed{ false };
 	bool m_usingHodograph{ false };

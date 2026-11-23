@@ -318,8 +318,10 @@ void cameraControl::checkWindowUpdate()
 
     int width = 0, height = 0;
     glfwGetWindowSize(m_window, &width, &height);
+    int minimized = glfwGetWindowAttrib(m_window, GLFW_ICONIFIED);
 
-    if (width == m_width && height == m_height) previousSuccess = true; 
+
+    if (width == m_width && height == m_height || minimized) previousSuccess = true; 
     else if (previousSuccess) previousSuccess = false;
     else
     {

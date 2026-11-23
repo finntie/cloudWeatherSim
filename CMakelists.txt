@@ -19,7 +19,11 @@ if (GPU_BACKEND STREQUAL "CUDA")
 elseif (GPU_BACKEND STREQUAL "AMD")
 
     if (NOT DEFINED CMAKE_HIP_ARCHITECTURES)
-        set(CMAKE_HIP_ARCHITECTURES gfx1030 gfx1100) # Set default AMD architectures
+    # Set default AMD architectures
+        set(CMAKE_HIP_ARCHITECTURES
+            gfx1010 gfx1030 gfx1031 gfx1032
+            gfx1100 gfx1101 gfx1102
+            gfx1200 gfx1201)        
     endif()
 
     # Fix rocm root path
