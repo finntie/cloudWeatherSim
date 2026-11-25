@@ -231,7 +231,7 @@ void cloudRenderer::loadFile(const char* cloudFile)
     m_cudaRenderObj->setOnlyRenderResource(true);
 
     // Set camera Position based on grid
-    glm::vec3 pos = glm::vec3(m_params.sizeX, m_params.sizeY, m_params.sizeZ) * m_params.voxelSize;
+    glm::vec3 pos = glm::vec3(m_params.sizeX[0], m_params.sizeY[0], m_params.sizeZ[0]) * m_params.voxelSize;
     glm::vec3 normPos = glm::normalize(pos);
     pos = normPos * distance(pos, glm::vec3(0.0f)) * 1.5f;
     glm::quat rotation = glm::quatLookAt(-normPos, glm::vec3(0, 1, 0));

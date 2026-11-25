@@ -628,7 +628,7 @@ __global__ void renderEnvironmentCUDAGPU(unsigned int* dOutput,
 
         const float nearStepSize = 0.1f * p.voxelSize;
         const float farStepSize = 0.25f * p.voxelSize;
-        const float stepAdjustmentDistance = distance(make_float3(0, 0, 0), make_float3(p.sizeX, p.sizeY, p.sizeZ) * p.voxelSize);
+        const float stepAdjustmentDistance = distance(make_float3(0, 0, 0), make_float3(p.sizeX[0], p.sizeY[0], p.sizeZ[0]) * p.voxelSize);
         const float startT = t;
 
 

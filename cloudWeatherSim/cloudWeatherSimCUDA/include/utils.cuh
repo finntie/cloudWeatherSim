@@ -24,16 +24,16 @@ inline void unlockGlobal() { mtx.unlock(); }
 struct dim3;
 
 // Both branch for host and device due to difference in variable location
-__host__ __device__ inline int getIdx(simParams p, int x, int y, int z)
+__host__ __device__ inline int getIdx(simParams p, int x, int y, int z, int gridIndex = 0)
 {
-	return x + y * p.sizeX + z * p.sizeX * p.sizeY;
+	return x + y * p.sizeX[gridIndex] + z * p.sizeX[gridIndex] * p.sizeY[gridIndex];
 }
 
 
 
-__host__ __device__ inline void getCoord(simParams p, const int index, int& x, int& y, int& z)
+__host__ __device__ inline void getCoord(simParams p, const int index, int& x, int& y, int& z, int gridIndex = 0)
 {
-    int sx = p.sizeX, sy = p.sizeY, total = p.size;
+    int sx = p.sizeX[gridIndex], sy = p.sizeY[gridIndex], total = p.size[gridIndex];
 
     // If invalid
     if (index < 0 || index >= total)
@@ -49,26 +49,27 @@ __host__ __device__ inline void getCoord(simParams p, const int index, int& x, i
     z = (index - xy) / (sx * sy);
 }
 
-__host__ __device__ inline bool isOutside(simParams p, int x, int y, int z)
+__host__ __device__ inline bool isOutside(simParams p, int x, int y, int z, int gridIndex = 0)
 {
-	if (x + 1 > p.sizeX) return true;
+	if (x + 1 > p.sizeX[gridIndex]) return true;
 	else if (x < 0) return true;
-	if (y + 1 > p.sizeY) return true;
+	if (y + 1 > p.sizeY[gridIndex]) return true;
 	else if (y < 0) return true;
-	if (z + 1 > p.sizeZ) return true;
+	if (z + 1 > p.sizeZ[gridIndex]) return true;
 	else if (z < 0) return true;
 	return false;
 }
 
-__host__ __device__ inline bool isOutside(simParams p, int idx)
+__host__ __device__ inline bool isOutside(simParams p, int idx, int gridIndex = 0)
 {
-	if (idx + 1 > p.size || idx < 0) return true;
+	if (idx + 1 > p.size[gridIndex] || idx < 0) return true;
 	return false;
 }
 
 // Retrieve grid and block dimensions based on current hardware
 __host__ void getGridBlockDims(simParams p, dim3& _gridDim, dim3& _blockDim);
 
+__host__ void getGridBlockDimsMultRes(simParams& p, dim3& _gridDim, dim3& _blockDim);
 
 
 

@@ -51,14 +51,14 @@ simulationEditor::~simulationEditor()
 
 void simulationEditor::init() 
 {
-    m_envEditData->init(m_params.sizeX, m_params.sizeY, m_params.sizeZ);
+    m_envEditData->init(m_params.sizeX[0], m_params.sizeY[0], m_params.sizeZ[0]);
     GPUSetEnv(true);
     initializeSkewT();
 
     m_tracingObj->init();
 
     // Set camera Position based on grid
-    glm::vec3 pos = glm::vec3(m_params.sizeX, m_params.sizeY, m_params.sizeZ) * m_params.voxelSize;
+    glm::vec3 pos = glm::vec3(m_params.sizeX[0], m_params.sizeY[0], m_params.sizeZ[0]) * m_params.voxelSize;
     glm::vec3 normPos = glm::normalize(pos);
     pos = normPos * distance(pos, glm::vec3(0.0f)) * 1.5f;
     glm::quat rotation = glm::quatLookAt(-normPos, glm::vec3(0,1,0));
@@ -70,7 +70,7 @@ void simulationEditor::resize()
 {
     if (m_envEditData) delete m_envEditData;
     m_envEditData = new envDebugData();
-    m_envEditData->init(m_params.sizeX, m_params.sizeY, m_params.sizeZ);
+    m_envEditData->init(m_params.sizeX[0], m_params.sizeY[0], m_params.sizeZ[0]);
     GPUSetEnv(true);
     initializeSkewT();
 
@@ -164,14 +164,14 @@ void simulationEditor::initializeSkewT()
 {
     // Initialize skewTer
     {
-        float* temps = new float[m_params.sizeY];
-        float* dewPoints = new float[m_params.sizeY];
+        float* temps = new float[m_params.sizeY[0]];
+        float* dewPoints = new float[m_params.sizeY[0]];
 
         dataToSkewTData(temps, dewPoints);
 
         skewTer::skewTInfo skewT;
-        skewT.init(m_params.sizeY, temps, dewPoints, m_envEditData->m_envPressure);
-        m_skewTidx = (m_envEditData->m_groundHeight[0] + 1) * m_params.sizeX;
+        skewT.init(m_params.sizeY[0], temps, dewPoints, m_envEditData->m_envPressure);
+        m_skewTidx = (m_envEditData->m_groundHeight[0] + 1) * m_params.sizeX[0];
         m_skewTObj->setSkewT(skewT);
 
         delete[] temps;
@@ -186,7 +186,7 @@ void simulationEditor::dataToSkewTData(float* temp, float* dew)
     const int z = m_skewTPos.z;
 
     // Use i for our y lookup, gathering all data up into the sky
-    for (int i = 0; i < m_params.sizeY; i++)
+    for (int i = 0; i < m_params.sizeY[0]; i++)
     {
         if (i < y)
         {
@@ -195,7 +195,7 @@ void simulationEditor::dataToSkewTData(float* temp, float* dew)
             continue;
         }
         const int idx = getIdx(m_params, x, i, z);
-        const int idxG = x + z * m_params.sizeX;
+        const int idxG = x + z * m_params.sizeX[0];
 
         const float Tz = float(m_envEditData->m_envView.potTemp[idx]) - 273.15f;
         const float T = MForms::potentialTemp(Tz, m_envEditData->m_groundView.P[idxG], m_envEditData->m_envView.pressure[idx]);
@@ -281,18 +281,18 @@ void simulationEditor::updateSkewT(bool skewTView)
     if (skewTView)
     {
         // Small SkewT Index check
-        int idxG = m_skewTPos.x + m_skewTPos.z * m_params.sizeX;
+        int idxG = m_skewTPos.x + m_skewTPos.z * m_params.sizeX[0];
         if (m_skewTPos.y <= m_envEditData->m_groundHeight[idxG])
         {
             // Update new coordinate to be above ground
             int newY = m_envEditData->m_groundHeight[idxG] + 1;
-            m_skewTPos.y = newY < m_params.sizeY ? newY : m_params.sizeY - 1;
+            m_skewTPos.y = newY < m_params.sizeY[0] ? newY : m_params.sizeY[0] - 1;
             m_skewTidx = getIdx(m_params, m_skewTPos.x, m_skewTPos.y, m_skewTPos.z);
         }
 
         // Copy over data at the skewT idx to our skewT class
-        float* temps = new float[m_params.sizeY];
-        float* dewPoints = new float[m_params.sizeY];
+        float* temps = new float[m_params.sizeY[0]];
+        float* dewPoints = new float[m_params.sizeY[0]];
         dataToSkewTData(temps, dewPoints);
 
         m_skewTObj->setAllArrays(temps, dewPoints, m_envEditData->m_envPressure);
@@ -331,10 +331,10 @@ void simulationEditor::controls()
     if (m_viewSlice && CloudHub.InputObj().keyDown(newInput::LEFT_CONTROL) && m_mouseWheel != CloudHub.InputObj().mouseScroll())
     {
         const int scroll = int(m_mouseWheel) - int(CloudHub.InputObj().mouseScroll());
-        int sliceMaxCoord = m_params.sizeX - 1;
-        if (m_viewSliceCoord == 0) sliceMaxCoord = m_params.sizeX - 1;
-        else if (m_viewSliceCoord == 1) sliceMaxCoord = m_params.sizeY - 1;
-        else if (m_viewSliceCoord == 2) sliceMaxCoord = m_params.sizeZ - 1;
+        int sliceMaxCoord = m_params.sizeX[0] - 1;
+        if (m_viewSliceCoord == 0) sliceMaxCoord = m_params.sizeX[0] - 1;
+        else if (m_viewSliceCoord == 1) sliceMaxCoord = m_params.sizeY[0] - 1;
+        else if (m_viewSliceCoord == 2) sliceMaxCoord = m_params.sizeZ[0] - 1;
 
         m_atSliceViewSlice = std::clamp(m_atSliceViewSlice + scroll, 0, sliceMaxCoord);
         setSliceMinMax(!m_viewSlice);
@@ -404,7 +404,7 @@ void simulationEditor::viewParamValuesPanel()
     int x = m_mousePointingPos.x;
     int y = m_mousePointingPos.y;
     int z = m_mousePointingPos.z;
-    const int Gidx = x + z * m_params.sizeX;
+    const int Gidx = x + z * m_params.sizeX[0];
 
     ImGui::Indent();
     ImGui::Text("%s", std::string("X: " + std::to_string(x) + ", Y: " + std::to_string(y) + ", Z: " + std::to_string(z)).c_str());
@@ -498,7 +498,7 @@ void simulationEditor::slicePanel()
 
     if (ImGui::TreeNode("View-Slice"))
     {
-        static int sliceMaxCoord = m_params.sizeX - 1;
+        static int sliceMaxCoord = m_params.sizeX[0] - 1;
 
         if (ImGui::Checkbox("Use Slice View", &m_viewSlice))
         {
@@ -508,19 +508,19 @@ void simulationEditor::slicePanel()
         if (ImGui::RadioButton("Slice X", &m_viewSliceCoord, 0))
         {
             setSliceMinMax(!m_viewSlice);
-            sliceMaxCoord = m_params.sizeX - 1;
+            sliceMaxCoord = m_params.sizeX[0] - 1;
         }
         ImGui::SameLine();
         if (ImGui::RadioButton("Slice Y", &m_viewSliceCoord, 1))
         {
             setSliceMinMax(!m_viewSlice);
-            sliceMaxCoord = m_params.sizeY - 1;
+            sliceMaxCoord = m_params.sizeY[0] - 1;
         }
         ImGui::SameLine();
         if (ImGui::RadioButton("Slice Z", &m_viewSliceCoord, 2))
         {
             setSliceMinMax(!m_viewSlice);
-            sliceMaxCoord = m_params.sizeZ - 1;
+            sliceMaxCoord = m_params.sizeZ[0] - 1;
         }
 
         if (ImGui::SliderInt("Slice Layer", &m_atSliceViewSlice, 0, sliceMaxCoord))
@@ -1027,11 +1027,11 @@ void simulationEditor::viewBrush()
 
         const int brushSizeI = int(ceil(m_brushSize));
         const float maxBrushSize = m_brushSize * m_brushSize;
-        for (int zb = std::max(0, z - brushSizeI); zb < std::min(m_params.sizeZ, z + brushSizeI); zb++)
+        for (int zb = std::max(0, z - brushSizeI); zb < std::min(m_params.sizeZ[0], z + brushSizeI); zb++)
         {
-            for (int yb = std::max(0, y - brushSizeI); yb < std::min(m_params.sizeY, y + brushSizeI); yb++)
+            for (int yb = std::max(0, y - brushSizeI); yb < std::min(m_params.sizeY[0], y + brushSizeI); yb++)
             {
-                for (int xb = std::max(0, x - brushSizeI); xb < std::min(m_params.sizeX, x + brushSizeI); xb++)
+                for (int xb = std::max(0, x - brushSizeI); xb < std::min(m_params.sizeX[0], x + brushSizeI); xb++)
                 {
                     const int dx = xb - x;
                     const int dy = yb - y;
@@ -1128,9 +1128,9 @@ void simulationEditor::viewSelect()
         int sx1 = std::max(0, std::min(m_corners[0].x, m_corners[1].x));
         int sy1 = std::max(0, std::min(m_corners[0].y, m_corners[1].y));
         int sz1 = std::max(0, std::min(m_corners[0].z, m_corners[1].z));
-        int sx2 = std::min(m_params.sizeX - 1, std::max(m_corners[1].x, m_corners[0].x));
-        int sy2 = std::min(m_params.sizeY - 1, std::max(m_corners[1].y, m_corners[0].y));
-        int sz2 = std::min(m_params.sizeZ - 1, std::max(m_corners[1].z, m_corners[0].z));
+        int sx2 = std::min(m_params.sizeX[0] - 1, std::max(m_corners[1].x, m_corners[0].x));
+        int sy2 = std::min(m_params.sizeY[0] - 1, std::max(m_corners[1].y, m_corners[0].y));
+        int sz2 = std::min(m_params.sizeZ[0] - 1, std::max(m_corners[1].z, m_corners[0].z));
 
         for (int sz = sz1; sz <= sz2; sz++)
         {
@@ -1221,7 +1221,7 @@ void simulationEditor::viewDebugSky()
 			for (int x = m_minViewX; x < m_maxViewX; x++)
 			{
 				const int idx = getIdx(m_params, x, y, z);
-				const int idxG = x + z * m_params.sizeX;
+				const int idxG = x + z * m_params.sizeX[0];
 				if (y <= m_envEditData->m_groundHeight[idxG]) 
 				{
 					continue; // Ignore
@@ -1299,12 +1299,12 @@ void simulationEditor::viewDebugGround()
 {
     if (!m_viewGround) return;
 
-    for (int z = 0; z < m_params.sizeZ; z++)
+    for (int z = 0; z < m_params.sizeZ[0]; z++)
     {
-        for (int x = 0; x < m_params.sizeX; x++)
+        for (int x = 0; x < m_params.sizeX[0]; x++)
         {
-            const int idxG = x + z * m_params.sizeX;
-            const int GHeight = m_envEditData->m_groundHeight[x + z * m_params.sizeX];
+            const int idxG = x + z * m_params.sizeX[0];
+            const int GHeight = m_envEditData->m_groundHeight[x + z * m_params.sizeX[0]];
             glm::vec3 color{};
             switch (m_viewParamGround)
             {
@@ -1366,9 +1366,9 @@ void simulationEditor::setSliceMinMax(bool fullView)
         m_minViewX = 0;
         m_minViewY = 0;
         m_minViewZ = 0;
-        m_maxViewX = m_params.sizeX;
-        m_maxViewY = m_params.sizeY;
-        m_maxViewZ = m_params.sizeZ;
+        m_maxViewX = m_params.sizeX[0];
+        m_maxViewY = m_params.sizeY[0];
+        m_maxViewZ = m_params.sizeZ[0];
     }
     else
     {
@@ -1376,34 +1376,34 @@ void simulationEditor::setSliceMinMax(bool fullView)
         switch (m_viewSliceCoord)
         {
             case 0:  // Slice X
-                m_atSliceViewSlice = std::min(m_atSliceViewSlice, m_params.sizeX - 1);
+                m_atSliceViewSlice = std::min(m_atSliceViewSlice, m_params.sizeX[0] - 1);
                 m_minViewX = m_atSliceViewSlice;
                 m_maxViewX = m_atSliceViewSlice + 1;
 
                 m_minViewY = 0;
                 m_minViewZ = 0;
-                m_maxViewY = m_params.sizeY;
-                m_maxViewZ = m_params.sizeZ;
+                m_maxViewY = m_params.sizeY[0];
+                m_maxViewZ = m_params.sizeZ[0];
                 break;
             case 1:  // Slice Y
-                m_atSliceViewSlice = std::min(m_atSliceViewSlice, m_params.sizeY - 1);
+                m_atSliceViewSlice = std::min(m_atSliceViewSlice, m_params.sizeY[0] - 1);
                 m_minViewY = m_atSliceViewSlice;
                 m_maxViewY = m_atSliceViewSlice + 1;
 
                 m_minViewX = 0;
                 m_minViewZ = 0;
-                m_maxViewX = m_params.sizeX;
-                m_maxViewZ = m_params.sizeZ;
+                m_maxViewX = m_params.sizeX[0];
+                m_maxViewZ = m_params.sizeZ[0];
                 break;
             case 2:  // Slice Z
-                m_atSliceViewSlice = std::min(m_atSliceViewSlice, m_params.sizeZ - 1);
+                m_atSliceViewSlice = std::min(m_atSliceViewSlice, m_params.sizeZ[0] - 1);
                 m_minViewZ = m_atSliceViewSlice;
                 m_maxViewZ = m_atSliceViewSlice + 1;
 
                 m_minViewX = 0;
                 m_minViewY = 0;
-                m_maxViewX = m_params.sizeX;
-                m_maxViewY = m_params.sizeY;
+                m_maxViewX = m_params.sizeX[0];
+                m_maxViewY = m_params.sizeY[0];
                 break;
             default:
                 break;

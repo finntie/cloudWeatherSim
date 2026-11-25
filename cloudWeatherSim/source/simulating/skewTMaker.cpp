@@ -1357,9 +1357,9 @@ void skewTMaker::confirmSkewT(simParams params)
     // Set camera rotation
     m_cameraRot = InputRotation;
     // Offset location based on size
-    glm::vec3 middle = glm::vec3(float(params.sizeX) * 0.5f, float(params.sizeY) * 0.5f, float(params.sizeZ) * 0.5f);
+    glm::vec3 middle = glm::vec3(float(params.sizeX[0]) * 0.5f, float(params.sizeY[0]) * 0.5f, float(params.sizeZ[0]) * 0.5f);
     glm::vec3 dir = InputRotation * glm::vec3(0, 0, -1) * -1.0f;
-    m_cameraPos = middle + dir * float(params.sizeX) * 2.0f;  // Offset by distance of 2x gridsizeX towards negative direction
+    m_cameraPos = middle + dir * float(params.sizeX[0]) * 2.0f;  // Offset by distance of 2x gridsizeX towards negative direction
 
     m_skewTConfirmed = true;
     doneMakingSkewT = true;

@@ -45,15 +45,15 @@ __device__ __forceinline__ float getValueExtraForwardBackward(simParams p, const
 
 void initKernelSky(simParams p, const float* _defaultVelX, const float* _defaultVelZ, void* stream)
 {
-	if (p.sizeY > maxDefaultConstantSize)
+	if (p.sizeY[0] > maxDefaultConstantSize)
 	{
 		printf("ERROR, GRIDSIZESKYY is larger than maximum default constant size: Decrease GRIDSIZESKYY, increase maxDefaultConstantSize or remove from __constant__ memory\n");
 		return;
 	}
 
 	//Set constant data for easier access
-	hipMemcpyToSymbolAsync(HIP_SYMBOL(defaultVelX), _defaultVelX, p.sizeY * sizeof(float), 0, hipMemcpyDeviceToDevice, static_cast<hipStream_t>(stream));
-	hipMemcpyToSymbolAsync(HIP_SYMBOL(defaultVelZ), _defaultVelZ, p.sizeY * sizeof(float), 0, hipMemcpyDeviceToDevice, static_cast<hipStream_t>(stream));
+	hipMemcpyToSymbolAsync(HIP_SYMBOL(defaultVelX), _defaultVelX, p.sizeY[0] * sizeof(float), 0, hipMemcpyDeviceToDevice, static_cast<hipStream_t>(stream));
+	hipMemcpyToSymbolAsync(HIP_SYMBOL(defaultVelZ), _defaultVelZ, p.sizeY[0] * sizeof(float), 0, hipMemcpyDeviceToDevice, static_cast<hipStream_t>(stream));
 
 	const float b = 0.8f;
 	const float d = 0.25f;
@@ -92,8 +92,13 @@ __global__ void diffuseRedBlack(simParams p, const float* groundT, const float* 
 	int idxsData = threadIdx.x + 1 + (threadIdx.y + 1) * sharedBlockWidth;
 	int idx = getIdx(p, x, y, z);
 
+
+	// 1D block data:
+	extern __shared__ float sharedBlock[]; // Dynamic shared data
+
+
 	bool valid = true;
-	if (x >= p.sizeX || y >= p.sizeY || z >= p.sizeZ) // Avoid outside access
+	if (x >= p.sizeX[0] || y >= p.sizeY[0] || z >= p.sizeZ[0]) // Avoid outside access
 	{
 		x = 0; y = 0; idx = 0; // Set every index to 0
 		valid = false;
@@ -117,11 +122,11 @@ __global__ void diffuseRedBlack(simParams p, const float* groundT, const float* 
 	}
 	else forward = curValue;
 	float current = 0.0f;
-	current = fillNeighbourData(p, curNeigh.getOutsideBackward(), curNeigh.getEnvTypeBackward(), bounds, input, idx, -p.sizeX * p.sizeY, defaultValue);
+	current = fillNeighbourData(p, curNeigh.getOutsideBackward(), curNeigh.getEnvTypeBackward(), bounds, input, idx, -p.sizeX[0] * p.sizeY[0], defaultValue);
 	float backward = 0.0f;
 
 	// We just grab the Z for the next block index and loop until there
-	for (; z < fminf(p.sizeZ, ceilf(float(blockIdx.z + 1) * invBlockSpreadDepth)); z++)
+	for (; z < fminf(p.sizeZ[0], ceilf(float(blockIdx.z + 1) * invBlockSpreadDepth)); z++)
 	{
 		// Early birds can wait
 		__syncthreads();
@@ -133,7 +138,7 @@ __global__ void diffuseRedBlack(simParams p, const float* groundT, const float* 
 
 		backward = current;
 		current = forward;
-		forward = fillNeighbourData(p, curNeigh.getOutsideForward(), curNeigh.getEnvTypeForward(), bounds, input, idx, p.sizeX * p.sizeY, defaultValue);
+		forward = fillNeighbourData(p, curNeigh.getOutsideForward(), curNeigh.getEnvTypeForward(), bounds, input, idx, p.sizeX[0] * p.sizeY[0], defaultValue);
 
 		if (valid) fillSharedNeigh(p, curNeigh, sharedBlock, input, defaultValue, z, bounds);
 
@@ -149,11 +154,11 @@ __global__ void diffuseRedBlack(simParams p, const float* groundT, const float* 
 		// This is because we do not save potential temp on the ground
 		if (type == 0)
 		{
-			const int idxG = x + z * p.sizeX;
+			const int idxG = x + z * p.sizeX[0];
 			const int idxGL = x > 0 ? idxG - 1 : idxG;
-			const int idxGR = x + 1 < p.sizeX ? idxG + 1 : idxG;
-			const int idxGF = z + p.sizeX < p.sizeZ ? idxG + p.sizeX : idxG;
-			const int idxGB = z > 0 ? idxG - p.sizeX : idxG;
+			const int idxGR = x + 1 < p.sizeX[0] ? idxG + 1 : idxG;
+			const int idxGF = z + p.sizeX[0] < p.sizeZ[0] ? idxG + p.sizeX[0] : idxG;
+			const int idxGB = z > 0 ? idxG - p.sizeX[0] : idxG;
 
 
 			const float potTempl = MForms::potentialTemp(groundT[idxGL] - 273.15f, pressuresAir[idx], groundP[idxGL]) + 273.15f;
@@ -209,11 +214,11 @@ __global__ void advectGroundWaterGPU(simParams p, const int* GHeight, float* Qrs
 	const int sharedBlockWidth = blockDim.x + 2;
 	int x = threadIdx.x + blockDim.x * blockIdx.x;
 	int z = threadIdx.y + blockDim.y * blockIdx.y;
-	int idx = x + z * p.sizeX;
+	int idx = x + z * p.sizeX[0];
 	int idxsData = threadIdx.x + 1 + (threadIdx.y + 1) * sharedBlockWidth;
 
 	bool valid = true;
-	if (x >= p.sizeX || z >= p.sizeZ) // Avoid outside access
+	if (x >= p.sizeX[0] || z >= p.sizeZ[0]) // Avoid outside access
 	{
 		x = 0; z = 0; idxsData = sharedBlockWidth; idx = 0; // Set every index to 0
 		valid = false;
@@ -221,8 +226,8 @@ __global__ void advectGroundWaterGPU(simParams p, const int* GHeight, float* Qrs
 
 	int idxL = idx - 1;
 	int idxR = idx + 1;
-	int idxB = idx - p.sizeX;
-	int idxF = idx + p.sizeX;
+	int idxB = idx - p.sizeX[0];
+	int idxF = idx + p.sizeX[0];
 
 	// Filling shared data
 	const float rsC = Qrs[idx];
@@ -353,12 +358,12 @@ __global__ void setTempsAtGroundGPU(simParams p, const int* GHeight, float* potT
 {
 	const int x = threadIdx.x;
 	const int z = blockIdx.x;
-	if (x >= p.sizeX || z >= p.sizeZ) return; // Safe to return due to no syncing
-	const int Gidx = x + z * p.sizeX; // Ground index
+	if (x >= p.sizeX[0] || z >= p.sizeZ[0]) return; // Safe to return due to no syncing
+	const int Gidx = x + z * p.sizeX[0]; // Ground index
 	const int y = GHeight[Gidx] + 1;
 	const int idx = getIdx(p, x, y, z);
 
-	if (y >= p.sizeY - 1) return; // Safe to return due to no syncing
+	if (y >= p.sizeY[0] - 1) return; // Safe to return due to no syncing
 
 	const float T = MForms::potentialTemp(groundTemps[Gidx] - 273.15f, pressuresAir[idx], groundPressures[Gidx]) + 273.15f;
 	const float dif2 = potTemps[idx] - T;
@@ -483,14 +488,14 @@ __global__ void advectPPMX(simParams p,
 	int idxsData = threadIdx.x + 1 + (threadIdx.y + 1) * sharedBlockWidth;
 
 	bool valid = true;
-	if (x >= p.sizeX || y >= p.sizeY || z >= p.sizeZ) // Avoid outside access
+	if (x >= p.sizeX[0] || y >= p.sizeY[0] || z >= p.sizeZ[0]) // Avoid outside access
 	{
 		x = 0; y = 0; idx = 0; idxsData = sharedBlockWidth + 1; // Set every index to 0
 		valid = false;
 	}
 
 	// We just grab the Z for the next block index and loop until there
-	for (; z < fminf(p.sizeZ, ceilf(float(blockIdx.z + 1) * invBlockSpreadDepth)); z++)
+	for (; z < fminf(p.sizeZ[0], ceilf(float(blockIdx.z + 1) * invBlockSpreadDepth)); z++)
 	{
 		// Early birds can wait
 		__syncthreads();
@@ -574,13 +579,13 @@ __global__ void advectPPMY(simParams p,
 	int idxsData = threadIdx.x + 1 + (threadIdx.y + 1) * sharedBlockWidth;
 
 	bool valid = true;
-	if (x >= p.sizeX || y >= p.sizeY || z >= p.sizeZ)// Avoid outside access
+	if (x >= p.sizeX[0] || y >= p.sizeY[0] || z >= p.sizeZ[0])// Avoid outside access
 	{
 		x = 0; y = 0; idx = 0; // Set every index to 0
 		valid = false;
 	}
 
-	for (; z < fminf(p.sizeZ, ceilf(float(blockIdx.z + 1) * invBlockSpreadDepth)); z++)
+	for (; z < fminf(p.sizeZ[0], ceilf(float(blockIdx.z + 1) * invBlockSpreadDepth)); z++)
 	{
 		// Early birds can wait
 		__syncthreads();
@@ -602,7 +607,7 @@ __global__ void advectPPMY(simParams p,
 		// If not downwind, we need to use extra Up
 		if (!downWind) 
 		{
-			extraUp = getValueExtraDirShared(neigh, arrayIn, sharedBlock, idx, idxsData, p.sizeX, sharedBlockWidth, UP);
+			extraUp = getValueExtraDirShared(neigh, arrayIn, sharedBlock, idx, idxsData, p.sizeX[0], sharedBlockWidth, UP);
 		}
 
 		float valD = downWind ? sharedBlock[idxsData - sharedBlockWidth] : extraUp;
@@ -612,7 +617,7 @@ __global__ void advectPPMY(simParams p,
 		float fluxUp = advectPPMFlux(p, velfieldY[idx], valD, valC, valU, *dt * 0.5f);
 
 		// For the correct velocity, we need to do some neighbouring checks
-		float velD = fillNeighbourData(p, curNeigh.getOutsideDown(), curNeigh.getEnvTypeDown(), bounds, velfieldY, idx, -p.sizeX, 0.0f);
+		float velD = fillNeighbourData(p, curNeigh.getOutsideDown(), curNeigh.getEnvTypeDown(), bounds, velfieldY, idx, -p.sizeX[0], 0.0f);
 
 		// Now we want to check the flux from the otherside, so we turn it around
 		downWind = velD < 0.0f;
@@ -621,7 +626,7 @@ __global__ void advectPPMY(simParams p,
 		float extraDown = 0.0f;
 		if (!downWind)
 		{
-			extraDown = getValueExtraDirShared(neigh, arrayIn, sharedBlock, idx, idxsData, -p.sizeX, -sharedBlockWidth, DOWN);
+			extraDown = getValueExtraDirShared(neigh, arrayIn, sharedBlock, idx, idxsData, -p.sizeX[0], -sharedBlockWidth, DOWN);
 		}
 
 		valD = downWind ? sharedBlock[idxsData + sharedBlockWidth] : extraDown;
@@ -654,22 +659,22 @@ __global__ void advectPPMZ(simParams p,
 	int z = int(ceilf(float(blockIdx.z) * invBlockSpreadDepth)); // Get z index from spread and block index on z dimension.
 	int idx = getIdx(p, x, y, z);
 
-	if (x >= p.sizeX || y >= p.sizeY || z >= p.sizeZ) return; // Allowed to return de to no syncing in this kernel
+	if (x >= p.sizeX[0] || y >= p.sizeY[0] || z >= p.sizeZ[0]) return; // Allowed to return de to no syncing in this kernel
 
 	// Make sure to not access nullptr
 	float defaultValue = defaultVal ? defaultVal[y] : 0.0f;
 	Neigh curNeigh = neigh[idx];
 
 	// Already set forward and current to the position where they can get easily swapped in the for loop
-	float forwardExtra = fillNeighbourData(p, curNeigh.getOutsideForward(), curNeigh.getEnvTypeForward(), bounds, arrayIn, idx, p.sizeX * p.sizeY, defaultValue);
+	float forwardExtra = fillNeighbourData(p, curNeigh.getOutsideForward(), curNeigh.getEnvTypeForward(), bounds, arrayIn, idx, p.sizeX[0] * p.sizeY[0], defaultValue);
 	float forward = 0.0f;
 	if (isGroundGPU(p, GHeight, x, y, z)) fillDataBoundCon(bounds.ground, forward, arrayIn[idx], defaultValue); // Fill forward if at ground
 	else forward = arrayIn[idx];
-	float current = fillNeighbourData(p, curNeigh.getOutsideBackward(), curNeigh.getEnvTypeBackward(), bounds, arrayIn, idx, -p.sizeX * p.sizeY, defaultValue);
+	float current = fillNeighbourData(p, curNeigh.getOutsideBackward(), curNeigh.getEnvTypeBackward(), bounds, arrayIn, idx, -p.sizeX[0] * p.sizeY[0], defaultValue);
 	float backward = getValueExtraForwardBackward(p, neigh, bounds, arrayIn, defaultValue, x, y, z, false);
 	float backwardExtra = 0.0f;
 
-	for (; z < fminf(p.sizeZ, ceilf(float(blockIdx.z + 1) * invBlockSpreadDepth)); z++)
+	for (; z < fminf(p.sizeZ[0], ceilf(float(blockIdx.z + 1) * invBlockSpreadDepth)); z++)
 	{
 		// We do not return, we just continue 
 		idx = getIdx(p, x, y, z);// TODO, possibly optimize by setting index on the end of this iteration, since the first iteration idx is the same
@@ -695,7 +700,7 @@ __global__ void advectPPMZ(simParams p,
 		float fluxForward = advectPPMFlux(p, velfieldZ[idx], valB, valC, valF, *dt);
 
 		// For the correct velocity, we need to do some neighbouring checks
-		float velB = fillNeighbourData(p, curNeigh.getOutsideBackward(), curNeigh.getEnvTypeBackward(), bounds, velfieldZ, idx, -p.sizeX * p.sizeY, defaultVelZ[y]);
+		float velB = fillNeighbourData(p, curNeigh.getOutsideBackward(), curNeigh.getEnvTypeBackward(), bounds, velfieldZ, idx, -p.sizeX[0] * p.sizeY[0], defaultVelZ[y]);
 
 		// Now we want to check the flux from the otherside, so we turn it around
 		downWind = velB < 0.0f;
@@ -724,21 +729,21 @@ __global__ void advectPrecipGPU(simParams p, const int* GHeight, float* Qj, cons
 	int idx = getIdx(p, x, y, z);
 
 
-	if (x >= p.sizeX || y >= p.sizeY || z >= p.sizeZ) return; // Able to return due to no syncing of threads.
+	if (x >= p.sizeX[0] || y >= p.sizeY[0] || z >= p.sizeZ[0]) return; // Able to return due to no syncing of threads.
 
-	for (; z < fminf(p.sizeZ, ceilf(float(blockIdx.z + 1) * invBlockSpreadDepth)); z++)
+	for (; z < fminf(p.sizeZ[0], ceilf(float(blockIdx.z + 1) * invBlockSpreadDepth)); z++)
 	{
 		idx = getIdx(p, x, y, z);
 
 		const bool up = !neigh[idx].getOutsideUp();
 		const float QjC = Qj[idx];
-		const float QjU = up ? Qj[idx + p.sizeX] : 0.0f;
+		const float QjU = up ? Qj[idx + p.sizeX[0]] : 0.0f;
 
 		// Continue if ground
 		if (isGroundGPU(p, GHeight, x, y, z)) continue;
 
-		const int idxG = x + z * p.sizeX;
-		const int idxU = idx + p.sizeX;
+		const int idxG = x + z * p.sizeX[0];
+		const int idxU = idx + p.sizeX[0];
 
 		float fallVel = 0.0f;
 		float fallVelUp = 0.0f;
@@ -795,9 +800,9 @@ __global__ void applyPreconditionerGPU(simParams p, const int* GHeight, float* o
 	int y = threadIdx.y + blockDim.y * blockIdx.y;
 	int z = int(ceilf(float(blockIdx.z) * invBlockSpreadDepth)); // Get z index from spread and block index on z dimension.
 
-	if (x >= p.sizeX || y >= p.sizeY || z >= p.sizeZ) return; // Safe to return due to no syncing
+	if (x >= p.sizeX[0] || y >= p.sizeY[0] || z >= p.sizeZ[0]) return; // Safe to return due to no syncing
 
-	for (; z < fminf(p.sizeZ, ceilf(float(blockIdx.z + 1) * invBlockSpreadDepth)); z++)
+	for (; z < fminf(p.sizeZ[0], ceilf(float(blockIdx.z + 1) * invBlockSpreadDepth)); z++)
 	{
 		const int idx = getIdx(p, x, y, z);
 		output[idx] = 0.0f;
@@ -818,7 +823,7 @@ __global__ void dotProductGPU(simParams p, const int* GHeight, float* result, co
 	int idxsData = threadIdx.x + threadIdx.y * blockDim.x;
 
 	bool valid = true;
-	if (x >= p.sizeX || y >= p.sizeY || z >= p.sizeZ) // Avoid outside access
+	if (x >= p.sizeX[0] || y >= p.sizeY[0] || z >= p.sizeZ[0]) // Avoid outside access
 	{
 		x = 0; y = 0; // Set every index to 0
 		valid = false;
@@ -826,7 +831,7 @@ __global__ void dotProductGPU(simParams p, const int* GHeight, float* result, co
 
 	// We now add multiply and add the values on the z direction if there are any extra z values except the current one
 	sresult[idxsData] = 0.0f;
-	for (; z < fminf(p.sizeZ, ceilf(float(blockIdx.z + 1) * invBlockSpreadDepth)); z++)
+	for (; z < fminf(p.sizeZ[0], ceilf(float(blockIdx.z + 1) * invBlockSpreadDepth)); z++)
 	{
 		if (valid && !isGroundGPU(p, GHeight, x, y, z))
 		{
@@ -874,7 +879,7 @@ __global__ void applyAGPU(simParams p, float* output, const float* input, const 
 
 
 	bool valid = true;
-	if (x >= p.sizeX || y >= p.sizeY || z >= p.sizeZ) // Avoid outside access
+	if (x >= p.sizeX[0] || y >= p.sizeY[0] || z >= p.sizeZ[0]) // Avoid outside access
 	{
 		x = 0; y = 0; idx = 0; idxsData = sharedBlockWidth; // Set every index to 0
 		valid = false;
@@ -895,13 +900,13 @@ __global__ void applyAGPU(simParams p, float* output, const float* input, const 
 	}
 	else forwardTemp = input[idx];
 	forward = forwardTemp;
-	float current = fillNeighbourData(p, currentNeigh.getOutsideBackward(), currentNeigh.getEnvTypeBackward(), bounds, input, idx, -p.sizeX * p.sizeY, 0.0f);
+	float current = fillNeighbourData(p, currentNeigh.getOutsideBackward(), currentNeigh.getEnvTypeBackward(), bounds, input, idx, -p.sizeX[0] * p.sizeY[0], 0.0f);
 	float backward = 0.0f;
-	bool forCheck = z < fminf(p.sizeZ, ceilf(float(blockIdx.z + 1) * invBlockSpreadDepth));
+	bool forCheck = z < fminf(p.sizeZ[0], ceilf(float(blockIdx.z + 1) * invBlockSpreadDepth));
 
 	for (; forCheck; z++)
 	{
-		forCheck = (z + 1) < fminf(p.sizeZ, ceilf(float(blockIdx.z + 1) * invBlockSpreadDepth));
+		forCheck = (z + 1) < fminf(p.sizeZ[0], ceilf(float(blockIdx.z + 1) * invBlockSpreadDepth));
 		Neigh nextNeigh;
 		int newIdx = 0;
 		if (forCheck)
@@ -912,7 +917,7 @@ __global__ void applyAGPU(simParams p, float* output, const float* input, const 
 
 		backward = current;
 		current = forward;
-		forward = fillNeighbourData(p, currentNeigh.getOutsideForward(), currentNeigh.getEnvTypeForward(), bounds, input, idx, p.sizeX * p.sizeY, 0.0f);
+		forward = fillNeighbourData(p, currentNeigh.getOutsideForward(), currentNeigh.getEnvTypeForward(), bounds, input, idx, p.sizeX[0] * p.sizeY[0], 0.0f);
 
 		if (valid) fillSharedNeigh(p, currentNeigh, sharedBlock, input, 0.0f, z, bounds);
 		__syncthreads();
@@ -931,8 +936,8 @@ __global__ void applyAGPU(simParams p, float* output, const float* input, const 
 		// TODO: left and backwards 0 when not sky?
 		float4 ACur = A[idx];
 		float ALeft = (!currentNeigh.getOutsideLeft() && currentNeigh.getEnvTypeLeft() == SKY) ? A[idx - 1].x : 0;
-		float ADown = (!currentNeigh.getOutsideDown() && currentNeigh.getEnvTypeDown() == SKY) ? A[idx - p.sizeX].y : 0;
-		float ABack = (!currentNeigh.getOutsideBackward() && currentNeigh.getEnvTypeBackward() == SKY) ? A[idx - p.sizeX * p.sizeY].z : 0;
+		float ADown = (!currentNeigh.getOutsideDown() && currentNeigh.getEnvTypeDown() == SKY) ? A[idx - p.sizeX[0]].y : 0;
+		float ABack = (!currentNeigh.getOutsideBackward() && currentNeigh.getEnvTypeBackward() == SKY) ? A[idx - p.sizeX[0] * p.sizeY[0]].z : 0;
 
 		float l = sharedBlock[idxsData - 1];
 		float r = sharedBlock[idxsData + 1];
@@ -977,7 +982,7 @@ __global__ void calculateDivergenceGPU(simParams p, const int* GHeight, float* d
 	constexpr boundsEnv boundsVelY = BOUNDSVELY;
 
 	bool valid = true;
-	if (x >= p.sizeX || y >= p.sizeY || z >= p.sizeZ) // Avoid outside access
+	if (x >= p.sizeX[0] || y >= p.sizeY[0] || z >= p.sizeZ[0]) // Avoid outside access
 	{
 		x = 0; y = 0; idx = 0; idxsData = sharedBlockWidth; // Set every index to 0
 		valid = false;
@@ -990,10 +995,10 @@ __global__ void calculateDivergenceGPU(simParams p, const int* GHeight, float* d
 	if (isGroundGPU(p, GHeight, x, y, z)) fillDataBoundCon(boundsDens.ground, forwardTemp, dens[idx], 1.0f); // Fill forward if at ground
 	else forwardTemp = dens[idx];
 	forward = forwardTemp;
-	float current = fillNeighbourData(p, currentNeigh.getOutsideBackward(), currentNeigh.getEnvTypeBackward(), boundsDens, dens, idx, -p.sizeX * p.sizeY, 1.0f);
+	float current = fillNeighbourData(p, currentNeigh.getOutsideBackward(), currentNeigh.getEnvTypeBackward(), boundsDens, dens, idx, -p.sizeX[0] * p.sizeY[0], 1.0f);
 	float backward = 0.0f;
 
-	for (; z < fminf(p.sizeZ, ceilf(float(blockIdx.z + 1) * invBlockSpreadDepth)); z++)
+	for (; z < fminf(p.sizeZ[0], ceilf(float(blockIdx.z + 1) * invBlockSpreadDepth)); z++)
 	{
 		// Be polite and wait a second.
 		__syncthreads();
@@ -1005,7 +1010,7 @@ __global__ void calculateDivergenceGPU(simParams p, const int* GHeight, float* d
 
 		backward = current;
 		current = forward;
-		forward = fillNeighbourData(p, currentNeigh.getOutsideForward(), currentNeigh.getEnvTypeForward(), boundsDens, dens, idx, p.sizeX * p.sizeY, 1.0f);
+		forward = fillNeighbourData(p, currentNeigh.getOutsideForward(), currentNeigh.getEnvTypeForward(), boundsDens, dens, idx, p.sizeX[0] * p.sizeY[0], 1.0f);
 
 		__syncthreads();
 
@@ -1022,10 +1027,10 @@ __global__ void calculateDivergenceGPU(simParams p, const int* GHeight, float* d
 
 		ur = velX[idx];// currentNeigh.getOutsideRight() ? (boundsVelXZ.sides == NEUMANN ? velX[idx - 1] : 0.0f) : velX[idx];// If outside and using NEUMANN, we use the previous, since current value is set to 0
 		ul = fillNeighbourData(p, currentNeigh.getOutsideLeft(), currentNeigh.getEnvTypeLeft(), boundsVelXZ, velX, idx, -1, defaultVelX[y]);
-		uu = velY[idx];// currentNeigh.getOutsideUp() ? (boundsVelY.up == NEUMANN ? velY[idx - p.sizeX] : 0.0f) : velY[idx]; // If outside and using NEUMANN, we use the previous, since current value is set to 0
-		ud = fillNeighbourData(p, currentNeigh.getOutsideDown(), currentNeigh.getEnvTypeDown(), boundsVelY, velY, idx, -p.sizeX, 0.0f);
-		uf = velZ[idx];// currentNeigh.getOutsideForward() ? (boundsVelXZ.sides == NEUMANN ? velZ[idx - p.sizeX * p.sizeY] : 0.0f) : velZ[idx];// If outside and using NEUMANN, we use the previous, since current value
-		ub = fillNeighbourData(p, currentNeigh.getOutsideBackward(), currentNeigh.getEnvTypeBackward(), boundsVelXZ, velZ, idx, -p.sizeX * p.sizeY, defaultVelZ[y]);
+		uu = velY[idx];// currentNeigh.getOutsideUp() ? (boundsVelY.up == NEUMANN ? velY[idx - p.sizeX[0]] : 0.0f) : velY[idx]; // If outside and using NEUMANN, we use the previous, since current value is set to 0
+		ud = fillNeighbourData(p, currentNeigh.getOutsideDown(), currentNeigh.getEnvTypeDown(), boundsVelY, velY, idx, -p.sizeX[0], 0.0f);
+		uf = velZ[idx];// currentNeigh.getOutsideForward() ? (boundsVelXZ.sides == NEUMANN ? velZ[idx - p.sizeX[0] * p.sizeY[0]] : 0.0f) : velZ[idx];// If outside and using NEUMANN, we use the previous, since current value
+		ub = fillNeighbourData(p, currentNeigh.getOutsideBackward(), currentNeigh.getEnvTypeBackward(), boundsVelXZ, velZ, idx, -p.sizeX[0] * p.sizeY[0], defaultVelZ[y]);
 
 		// Get correct densities
 		dr = sharedBlock[idxsData + 1];
@@ -1064,7 +1069,7 @@ __global__ void applyPresProjGPU(simParams p, const int* GHeight, const float* p
 	int y = threadIdx.y + blockDim.y * blockIdx.y;
 	int z = int(ceilf(float(blockIdx.z) * invBlockSpreadDepth)); // Get z index from spread and block index on z dimension.
 
-	if (x >= p.sizeX || y >= p.sizeY || z >= p.sizeZ) return; // Able to return due to no syncing
+	if (x >= p.sizeX[0] || y >= p.sizeY[0] || z >= p.sizeZ[0]) return; // Able to return due to no syncing
 
 	// Neumann means no air flowing in or out due to doing - currentP at the end
 	// Dirichlet means air flowing in or out
@@ -1072,7 +1077,7 @@ __global__ void applyPresProjGPU(simParams p, const int* GHeight, const float* p
 	constexpr boundsEnv boundsDens = BOUNDSDENSITY;
 
 
-	for (; z < fminf(p.sizeZ, ceilf(float(blockIdx.z + 1) * invBlockSpreadDepth)); z++)
+	for (; z < fminf(p.sizeZ[0], ceilf(float(blockIdx.z + 1) * invBlockSpreadDepth)); z++)
 	{
 		if (isGroundGPU(p, GHeight, x, y, z)) continue;
 		const int idx = getIdx(p, x, y, z);
@@ -1088,14 +1093,14 @@ __global__ void applyPresProjGPU(simParams p, const int* GHeight, const float* p
 
 		//If at the right or upper cell, we don't add any value
 		pr = fillNeighbourData(p, currentNeigh.getOutsideRight(), currentNeigh.getEnvTypeRight(), boundsPresProj, pressure, idx, 1, 0.0f);
-		pu = fillNeighbourData(p, currentNeigh.getOutsideUp(), currentNeigh.getEnvTypeUp(), boundsPresProj, pressure, idx, p.sizeX, 0.0f);
-		pf = fillNeighbourData(p, currentNeigh.getOutsideForward(), currentNeigh.getEnvTypeForward(), boundsPresProj, pressure, idx, p.sizeX * p.sizeY, 0.0f);
+		pu = fillNeighbourData(p, currentNeigh.getOutsideUp(), currentNeigh.getEnvTypeUp(), boundsPresProj, pressure, idx, p.sizeX[0], 0.0f);
+		pf = fillNeighbourData(p, currentNeigh.getOutsideForward(), currentNeigh.getEnvTypeForward(), boundsPresProj, pressure, idx, p.sizeX[0] * p.sizeY[0], 0.0f);
 		
 
 		//Density at face
 		dr = fillNeighbourData(p, currentNeigh.getOutsideRight(), currentNeigh.getEnvTypeRight(), boundsDens, density, idx, 1, 0.0f);
-		du = fillNeighbourData(p, currentNeigh.getOutsideUp(), currentNeigh.getEnvTypeUp(), boundsDens, density, idx, p.sizeX, 0.0f);
-		df = fillNeighbourData(p, currentNeigh.getOutsideForward(), currentNeigh.getEnvTypeForward(), boundsDens, density, idx, p.sizeX * p.sizeY, 0.0f);
+		du = fillNeighbourData(p, currentNeigh.getOutsideUp(), currentNeigh.getEnvTypeUp(), boundsDens, density, idx, p.sizeX[0], 0.0f);
+		df = fillNeighbourData(p, currentNeigh.getOutsideForward(), currentNeigh.getEnvTypeForward(), boundsDens, density, idx, p.sizeX[0] * p.sizeY[0], 0.0f);
 		// Calculate harmonic mean
 		dr = dr == 0.0f ? currentD : 2.0f / (1.0f / currentD + 1.0f / dr);
 		du = du == 0.0f ? currentD : 2.0f / (1.0f / currentD + 1.0f / du);
@@ -1133,7 +1138,7 @@ __global__ void getMaxDivergence(simParams p, const int* GHeight, float* output,
 	int idxsData = threadIdx.x + threadIdx.y * blockDim.x;
 
 	bool valid = true;
-	if (x >= p.sizeX || y >= p.sizeY || z >= p.sizeZ) // Avoid outside access
+	if (x >= p.sizeX[0] || y >= p.sizeY[0] || z >= p.sizeZ[0]) // Avoid outside access
 	{
 		x = 0; y = 0; // Set every index to 0
 		valid = false;
@@ -1141,7 +1146,7 @@ __global__ void getMaxDivergence(simParams p, const int* GHeight, float* output,
 
 	// We now check all the values on the z direction
 	sresult[idxsData] = 0.0f;
-	for (; z < fminf(p.sizeZ, ceilf(float(blockIdx.z + 1) * invBlockSpreadDepth)); z++)
+	for (; z < fminf(p.sizeZ[0], ceilf(float(blockIdx.z + 1) * invBlockSpreadDepth)); z++)
 	{
 		if (valid && !isGroundGPU(p, GHeight, x, y, z))
 		{
@@ -1197,9 +1202,9 @@ __global__ void updatePandDiv(simParams p, const int* GHeight, float* S1, float*
 
 	__syncthreads();
 
-	if (x >= p.sizeX || y >= p.sizeY || z >= p.sizeZ) return; // We can return since we passed the syncing
+	if (x >= p.sizeX[0] || y >= p.sizeY[0] || z >= p.sizeZ[0]) return; // We can return since we passed the syncing
 
-	for (; z < fminf(p.sizeZ, ceilf(float(blockIdx.z + 1) * invBlockSpreadDepth)); z++)
+	for (; z < fminf(p.sizeZ[0], ceilf(float(blockIdx.z + 1) * invBlockSpreadDepth)); z++)
 	{
 		//Adding up pressure value and reducing residual value
 		if (!isGroundGPU(p, GHeight, x, y, z))
@@ -1230,9 +1235,9 @@ __global__ void endIteration(simParams p, const int* GHeight, float* S1, float* 
 	}
 	__syncthreads();
 
-	if (x >= p.sizeX || y >= p.sizeY || z >= p.sizeZ) return; // Return since we passed syncing
+	if (x >= p.sizeX[0] || y >= p.sizeY[0] || z >= p.sizeZ[0]) return; // Return since we passed syncing
 
-	for (; z < fminf(p.sizeZ, ceilf(float(blockIdx.z + 1) * invBlockSpreadDepth)); z++)
+	for (; z < fminf(p.sizeZ[0], ceilf(float(blockIdx.z + 1) * invBlockSpreadDepth)); z++)
 	{
 		if (!isGroundGPU(p, GHeight, x, y, z))
 		{
@@ -1254,9 +1259,9 @@ __global__ void updatePressure(simParams p, const int* GHeight, float* envPressu
 	const int y = blockIdx.x;
 	int z = 0;
 	
-	if (x >= p.sizeX || y >= p.sizeY || z >= p.sizeZ) return; // Able to return due to no syncing
+	if (x >= p.sizeX[0] || y >= p.sizeY[0] || z >= p.sizeZ[0]) return; // Able to return due to no syncing
 
-	for (z = 0; z < p.sizeZ; z++)
+	for (z = 0; z < p.sizeZ[0]; z++)
 	{
 		if (!isGroundGPU(p, GHeight, x, y, z))
 		{
@@ -1274,9 +1279,9 @@ __global__ void initGroundHeightGPU(simParams p, int* _GHeight, const float* noi
 {
     const int x = threadIdx.x;
     const int z = blockIdx.x;
-    const int idxG = x + z * p.sizeX;
+    const int idxG = x + z * p.sizeX[0];
 
-    if (x >= p.sizeX || z >= p.sizeZ) return;
+    if (x >= p.sizeX[0] || z >= p.sizeZ[0]) return;
 
     _GHeight[idxG] = static_cast<int>(roundf(noise[idxG] * maxHeight));
 }
@@ -1287,12 +1292,12 @@ __global__ void resetValueInGround(simParams p, float* array, const int* _GHeigh
     const int y = blockIdx.x;
     int z = 0;
 
-    if (x >= p.sizeX || y >= p.sizeY || z >= p.sizeZ) return;
+    if (x >= p.sizeX[0] || y >= p.sizeY[0] || z >= p.sizeZ[0]) return;
 
-    for (z = 0; z < p.sizeZ; z++)
+    for (z = 0; z < p.sizeZ[0]; z++)
     {
         const int idx = getIdx(p, x, y, z);
-        if (y > _GHeight[x + z * p.sizeX])
+        if (y > _GHeight[x + z * p.sizeX[0]])
         {
             continue;
         }
@@ -1309,11 +1314,11 @@ __global__ void computeIsenTempGroundGPU(simParams p,
 {
     const int x = threadIdx.x;
     const int z = blockIdx.x;
-    const int idx = x + z * p.sizeX;
+    const int idx = x + z * p.sizeX[0];
 
-    if (x >= p.sizeX || z >= p.sizeZ) return;
+    if (x >= p.sizeX[0] || z >= p.sizeZ[0]) return;
 
-    const int GH = _GHeight[idx] + 1 >= p.sizeY ? p.sizeY - 1 : _GHeight[idx] + 1;
+    const int GH = _GHeight[idx] + 1 >= p.sizeY[0] ? p.sizeY[0] - 1 : _GHeight[idx] + 1;
     const float T = MForms::potentialTemp(isenTemp[GH - 1] - 273.15f, groundPressure[idx], pressures[getIdx(p, x, GH, z)]);
     array[idx] = T + 273.15f;
 }
@@ -1326,13 +1331,13 @@ __global__ void calculateCloudCoverGPU(simParams p, float* output, const float* 
 {
 	const int x = threadIdx.x;
 	const int z = blockIdx.x;
-	const int idxG = x + z * p.sizeX;
+	const int idxG = x + z * p.sizeX[0];
 
-	if (x >= p.sizeX || z >= p.sizeZ) return; // Able to return due to no syncing
+	if (x >= p.sizeX[0] || z >= p.sizeZ[0]) return; // Able to return due to no syncing
 
 	float totalCloudContent = 0.0f;
 	const float qfull = 1.2f; // a threshold value where all incoming radiation is reflected by cloud matter: http://meto.umd.edu/~zli/PDF_papers/Li%20Nature%20Article.pdf
-	for (int y = GHeight[idxG] + 1; y < p.sizeY; y++) totalCloudContent += (Qc[getIdx(p, x, y, z)] + Qw[getIdx(p, x, y, z)]) * p.voxelSize;
+	for (int y = GHeight[idxG] + 1; y < p.sizeY[0]; y++) totalCloudContent += (Qc[getIdx(p, x, y, z)] + Qw[getIdx(p, x, y, z)]) * p.voxelSize;
 	output[idxG] = fmin(totalCloudContent / qfull, 1.0f);
 }
 
@@ -1340,9 +1345,9 @@ __global__ void calculateGroundTempGPU(simParams p, float* groundT, const float 
 {
 	const int x = threadIdx.x;
 	const int z = blockIdx.x;
-	const int idxG = x + z * p.sizeX;
+	const int idxG = x + z * p.sizeX[0];
 
-	if (x >= p.sizeX|| z >= p.sizeZ) return; // Able to return due to no syncing
+	if (x >= p.sizeX[0]|| z >= p.sizeZ[0]) return; // Able to return due to no syncing
 
 	const float groundTemp = groundT[idxG];
 	const float absorbedRadiationAlbedo = 0.25f;  //How much light is reflected back? 0 = absorbes all, 1 = reflects all
@@ -1371,7 +1376,7 @@ __global__ void buoyancyGPU(simParams p, const int* GHeight, float* velY, const 
 	int idxsData = threadIdx.x + 1 + (threadIdx.y + 1) * sharedBlockWidth;
 
 	bool valid = true;
-	if (x >= p.sizeX || y >= p.sizeY || z >= p.sizeZ) // Avoid outside access
+	if (x >= p.sizeX[0] || y >= p.sizeY[0] || z >= p.sizeZ[0]) // Avoid outside access
 	{
 		x = 0; y = 0; idx = 0; // Set every index to 0
 		valid = false;
@@ -1392,13 +1397,13 @@ __global__ void buoyancyGPU(simParams p, const int* GHeight, float* velY, const 
 	if (isGroundGPU(p, GHeight, x, y, z)) fillDataBoundCon(boundsBuoyancy.ground, tempT, potTemp[idx], defaultValueTemp); // Fill forward if at ground
 	else tempT = potTemp[idx];
 	forwardT = tempT;
-	float currentQv = fillNeighbourData(p, currentNeigh.getOutsideBackward(), currentNeigh.getEnvTypeBackward(), boundsBuoyancy, Qv, idx, -p.sizeX * p.sizeY, defaultValueQv);
-	float currentT = fillNeighbourData(p, currentNeigh.getOutsideBackward(), currentNeigh.getEnvTypeBackward(), boundsBuoyancy, potTemp, idx, -p.sizeX * p.sizeY, defaultValueTemp);
+	float currentQv = fillNeighbourData(p, currentNeigh.getOutsideBackward(), currentNeigh.getEnvTypeBackward(), boundsBuoyancy, Qv, idx, -p.sizeX[0] * p.sizeY[0], defaultValueQv);
+	float currentT = fillNeighbourData(p, currentNeigh.getOutsideBackward(), currentNeigh.getEnvTypeBackward(), boundsBuoyancy, potTemp, idx, -p.sizeX[0] * p.sizeY[0], defaultValueTemp);
 	float backwardQv = 0;
 	float backwardT = 0;
 
 
-	for (; z < fminf(p.sizeZ, ceilf(float(blockIdx.z + 1) * invBlockSpreadDepth)); z++)
+	for (; z < fminf(p.sizeZ[0], ceilf(float(blockIdx.z + 1) * invBlockSpreadDepth)); z++)
 	{
 		// Early birds can wait
 		__syncthreads();
@@ -1416,12 +1421,12 @@ __global__ void buoyancyGPU(simParams p, const int* GHeight, float* velY, const 
 		backwardT = currentT;
 		currentQv = forwardQv;
 		currentT = forwardT;
-		forwardQv = fillNeighbourData(p, currentNeigh.getOutsideForward(), currentNeigh.getEnvTypeForward(), boundsBuoyancy, Qv, idx, p.sizeX * p.sizeY, defaultValueQv);
-		forwardT = fillNeighbourData(p, currentNeigh.getOutsideForward(), currentNeigh.getEnvTypeForward(), boundsBuoyancy, potTemp, idx, p.sizeX * p.sizeY, defaultValueTemp);
-		const float groundPs = groundP[x + z * p.sizeX];
+		forwardQv = fillNeighbourData(p, currentNeigh.getOutsideForward(), currentNeigh.getEnvTypeForward(), boundsBuoyancy, Qv, idx, p.sizeX[0] * p.sizeY[0], defaultValueQv);
+		forwardT = fillNeighbourData(p, currentNeigh.getOutsideForward(), currentNeigh.getEnvTypeForward(), boundsBuoyancy, potTemp, idx, p.sizeX[0] * p.sizeY[0], defaultValueTemp);
+		const float groundPs = groundP[x + z * p.sizeX[0]];
 		const float psC = pressures[idx];
-		const float psU = up && valid ? pressures[idx + p.sizeX] : psC;
-		const float psD = down && valid ? pressures[idx - p.sizeX] : psC;
+		const float psU = up && valid ? pressures[idx + p.sizeX[0]] : psC;
+		const float psD = down && valid ? pressures[idx - p.sizeX[0]] : psC;
 
 		if (valid) fillSharedNeigh(p, currentNeigh, sharedBlockQv, Qv, defaultValueQv, z, boundsBuoyancy);
 		if (valid) fillSharedNeigh(p, currentNeigh, sharedBlockT, potTemp, defaultValueTemp, z, boundsBuoyancy);
@@ -1568,9 +1573,9 @@ __global__ void addHeatGPU(simParams p, const float* _Qv, float* potTemp, float*
 	int y = threadIdx.y + blockDim.y * blockIdx.y;
 	int z = int(ceilf(float(blockIdx.z) * invBlockSpreadDepth)); // Get z index from spread and block index on z dimension.
 
-	if (x >= p.sizeX || y >= p.sizeY || z >= p.sizeZ) return; // Able to return due to no syncing
+	if (x >= p.sizeX[0] || y >= p.sizeY[0] || z >= p.sizeZ[0]) return; // Able to return due to no syncing
 
-	for (; z < fminf(p.sizeZ, ceilf(float(blockIdx.z + 1) * invBlockSpreadDepth)); z++)
+	for (; z < fminf(p.sizeZ[0], ceilf(float(blockIdx.z + 1) * invBlockSpreadDepth)); z++)
 	{
 		int idx = getIdx(p, x, y, z);
 
@@ -1605,8 +1610,8 @@ __global__ void computeNeighbourGPU(simParams p, const int* GHeight, Neigh* Neig
 	int y = blockIdx.x;
 	int z = 0;
 
-	if (x >= p.sizeX || y >= p.sizeY || z >= p.sizeZ) return; // Able to return due to no syncing
-	for (z = 0; z < p.sizeZ; z++)
+	if (x >= p.sizeX[0] || y >= p.sizeY[0] || z >= p.sizeZ[0]) return; // Able to return due to no syncing
+	for (z = 0; z < p.sizeZ[0]; z++)
 	{
 		int idx = getIdx(p, x, y, z);
 		const bool currentG = isGroundGPU(p, GHeight, x, y, z);
@@ -1617,15 +1622,15 @@ __global__ void computeNeighbourGPU(simParams p, const int* GHeight, Neigh* Neig
 		Neigh[idx].setCurrent(false, isGroundGPU(p, GHeight, x, y, z) ? GROUND : SKY);
 		bool left = x == 0;
 		Neigh[idx].setLeft(left, (left && currentG) || (!left && isGroundGPU(p, GHeight, x - 1, y, z)) ? GROUND : SKY);
-		bool right = x == p.sizeX - 1;
+		bool right = x == p.sizeX[0] - 1;
 		Neigh[idx].setRight(right, (right && currentG) || (!right && isGroundGPU(p, GHeight, x + 1, y, z)) ? GROUND : SKY);
 		bool down = y == 0;
 		Neigh[idx].setDown(down, (down && currentG) || (!down && isGroundGPU(p, GHeight, x, y - 1, z)) ? GROUND : SKY);
-		bool up = y == p.sizeY - 1;
+		bool up = y == p.sizeY[0] - 1;
 		Neigh[idx].setUp(up, (up && currentG) || (!up && isGroundGPU(p, GHeight, x, y + 1, z)) ? GROUND : SKY);
 		bool back = z == 0;
 		Neigh[idx].setBackward(back, (back && currentG) || (!back && isGroundGPU(p, GHeight, x, y, z - 1)) ? GROUND : SKY);
-		bool forward = z == p.sizeZ - 1;
+		bool forward = z == p.sizeZ[0] - 1;
 		Neigh[idx].setForward(forward, (forward && currentG) || (!forward && isGroundGPU(p, GHeight, x, y, z + 1)) ? GROUND : SKY);
 	}
 }
@@ -1644,7 +1649,7 @@ __global__ void initAMatrix(simParams p, const int* GHeight, float4* A, const Ne
 	constexpr boundsEnv bounds = BOUNDSAPPLYA;
 
 	bool valid = true;
-	if (x >= p.sizeX || y >= p.sizeY || z >= p.sizeZ) // Avoid outside access
+	if (x >= p.sizeX[0] || y >= p.sizeY[0] || z >= p.sizeZ[0]) // Avoid outside access
 	{
 		x = 0; y = 0; idx = 0; idxsData = sharedBlockWidth; // Set every index to 0
 		valid = false;
@@ -1658,10 +1663,10 @@ __global__ void initAMatrix(simParams p, const int* GHeight, float4* A, const Ne
 	if (isGroundGPU(p, GHeight, x, y, z)) fillDataBoundCon(bounds.ground, forwardTemp, density[idx], 1.0f); // Fill forward if at ground
 	else forwardTemp = density[idx];
 	forward = forwardTemp;
-	float current = fillNeighbourData(p, currentNeigh.getOutsideBackward(), currentNeigh.getEnvTypeBackward(), bounds, density, idx, -p.sizeX * p.sizeY, 1.0f);
+	float current = fillNeighbourData(p, currentNeigh.getOutsideBackward(), currentNeigh.getEnvTypeBackward(), bounds, density, idx, -p.sizeX[0] * p.sizeY[0], 1.0f);
 	float backward = 0.0f;
 
-	for (; z < fminf(p.sizeZ, ceilf(float(blockIdx.z + 1) * invBlockSpreadDepth)); z++)
+	for (; z < fminf(p.sizeZ[0], ceilf(float(blockIdx.z + 1) * invBlockSpreadDepth)); z++)
 	{
 		// Early birds can wait
 		__syncthreads();
@@ -1670,7 +1675,7 @@ __global__ void initAMatrix(simParams p, const int* GHeight, float4* A, const Ne
 
 		backward = current;
 		current = forward;
-		forward = fillNeighbourData(p, currentNeigh.getOutsideForward(), currentNeigh.getEnvTypeForward(), bounds, density, idx, p.sizeX * p.sizeY, 1.0f);
+		forward = fillNeighbourData(p, currentNeigh.getOutsideForward(), currentNeigh.getEnvTypeForward(), bounds, density, idx, p.sizeX[0] * p.sizeY[0], 1.0f);
 
 		if (valid) fillSharedNeigh(p, currentNeigh, sharedBlock, density, (defDens ? defDens[y] : 0.0f), z, bounds);
 		__syncthreads();
@@ -1734,9 +1739,9 @@ __global__ void initPrecon(simParams p, const int* GHeight, float* precon, const
 	int y = blockIdx.x;
 	int z = 0;
 
-	if (x >= p.sizeX || y >= p.sizeY || z >= p.sizeZ) return; // Able to return due to no syncing
+	if (x >= p.sizeX[0] || y >= p.sizeY[0] || z >= p.sizeZ[0]) return; // Able to return due to no syncing
 
-	for (z = 0; z < p.sizeZ; z++)
+	for (z = 0; z < p.sizeZ[0]; z++)
 	{
 		int idx = getIdx(p, x, y, z);
 
@@ -1752,12 +1757,12 @@ __global__ void initPrecon(simParams p, const int* GHeight, float* precon, const
 	////TODO: for 3D, look at formula 4.34	
 	//int Aminxx = tX == 0 ? 0 : -1;//A[idx - 1].x; //Minus X looking at x
 	//int Aminxy = tX == 0 ? 0 : -1;//A[idx - 1].y; //Minus X looking at y
-	//int Aminyy = tY == 0 ? 0 : -1;//A[idx - p.sizeX].y;	//Minus Y looking at y
-	//int Aminyx = tY == 0 ? 0 : -1;//A[idx - p.sizeX].x;	//Minus Y looking at x
+	//int Aminyy = tY == 0 ? 0 : -1;//A[idx - p.sizeX[0]].y;	//Minus Y looking at y
+	//int Aminyx = tY == 0 ? 0 : -1;//A[idx - p.sizeX[0]].x;	//Minus Y looking at x
 
 	////This does not have effect due to precon calculated in parrallel. 
 	//const float Preconi = 0.0f;//tX == 0 ? precon[idx] : precon[idx - 1];
-	//const float Preconj = 0.0f;//tY == 0 ? precon[idx] : precon[idx - p.sizeX];
+	//const float Preconj = 0.0f;//tY == 0 ? precon[idx] : precon[idx - p.sizeX[0]];
 	//const float e = A[idx].z
 	//	- (Aminxx * Preconi) * (Aminxx * Preconi)
 	//	- (Aminyy * Preconj) * (Aminyy * Preconj)
@@ -1773,14 +1778,14 @@ __global__ void initDensity(simParams p, const int* GHeight, float* densityAir, 
 	int y = blockIdx.x;
 	int z = 0;
 	
-	if (x >= p.sizeX || y >= p.sizeY || z >= p.sizeZ) return; // Able to return due to no syncing
+	if (x >= p.sizeX[0] || y >= p.sizeY[0] || z >= p.sizeZ[0]) return; // Able to return due to no syncing
 
-	for (z = 0; z < p.sizeZ; z++)
+	for (z = 0; z < p.sizeZ[0]; z++)
 	{
 		if (!isGroundGPU(p, GHeight, x, y, z))
 		{
 			int idx = getIdx(p, x, y, z);
-			const int idxG = x + z * p.sizeX;
+			const int idxG = x + z * p.sizeX[0];
 
 			const float T = float(potTemp[idx]) * glm::pow(pressures[idx] / groundP[idxG], Constants::Rsd / Constants::Cpd);
 			const float Tv = T * (0.608f * Qv[idx] + 1);
@@ -1797,14 +1802,14 @@ __global__ void calculateNewPressure(simParams p, const int* GHeight, float* pre
 	const int y = blockIdx.x;
 	int z = 0;
 
-	if (x >= p.sizeX || y >= p.sizeY || z >= p.sizeZ) return; // Able to return due to no syncing present in this kernel
+	if (x >= p.sizeX[0] || y >= p.sizeY[0] || z >= p.sizeZ[0]) return; // Able to return due to no syncing present in this kernel
 
-	for (z = 0; z < p.sizeZ; z++)
+	for (z = 0; z < p.sizeZ[0]; z++)
 	{
 		int idx = getIdx(p, x, y, z);
 		if (!isGroundGPU(p, GHeight, x, y, z))
 		{
-			const int idxG = x + z * p.sizeX;
+			const int idxG = x + z * p.sizeX[0];
 
 			//Yes, we use pressure to first calculate T and then calculate pressure, it is double sided but how else?
 			const float T = float(potTemp[idx]) * glm::pow(pressureEnv[idx] / GPressure[idxG], Constants::Rsd / Constants::Cpd);
@@ -1822,9 +1827,9 @@ __global__ void applyBrushGPU(simParams p, const int* GHeight, float* array, flo
 	const int x = threadIdx.x;
 	const int y = blockIdx.x;
 
-	if (x >= p.sizeX || y >= p.sizeY) return; // Able to return due to no syncing
+	if (x >= p.sizeX[0] || y >= p.sizeY[0]) return; // Able to return due to no syncing
 
-	for (int z = 0; z < p.sizeZ; z++)
+	for (int z = 0; z < p.sizeZ[0]; z++)
 	{
 
 		const int brushOffset = int(ceilf(brushSize));
@@ -1839,10 +1844,10 @@ __global__ void applyBrushGPU(simParams p, const int* GHeight, float* array, flo
 		const int mZ = z + position.z - brushOffset;
 		const int mIdx = getIdx(p, mX, mY, mZ);
 
-		if (mX >= p.sizeX || mY >= p.sizeY || mZ > p.sizeZ || mX < 0 || mY < 0 || mZ < 0) continue;
+		if (mX >= p.sizeX[0] || mY >= p.sizeY[0] || mZ > p.sizeZ[0] || mX < 0 || mY < 0 || mZ < 0) continue;
 
 		//Can't brush the ground
-		if (paramType != PGROUND && mY <= GHeight[mX + mZ * p.sizeX]) continue;
+		if (paramType != PGROUND && mY <= GHeight[mX + mZ * p.sizeX[0]]) continue;
 
 		//Distance check
 		const float eX = lX;
@@ -1897,7 +1902,7 @@ __global__ void applySelectionGPU(simParams p, const int* GHeight, float* array,
 	const int x = threadIdx.x;
 	const int y = blockIdx.x;
 
-	if (x >= p.sizeX || y >= p.sizeY) return; // Able to return due to no syncing
+	if (x >= p.sizeX[0] || y >= p.sizeY[0]) return; // Able to return due to no syncing
 
 	for (int z = minPos.z; z <= maxPos.z; z++)
 	{
@@ -1907,9 +1912,9 @@ __global__ void applySelectionGPU(simParams p, const int* GHeight, float* array,
 		const int mZ = z;
 		const int mIdx = getIdx(p, mX, mY, mZ);
 
-		if (mX >= p.sizeX || mY >= p.sizeY || mZ > p.sizeZ || mX < 0 || mY < 0 || mZ < 0) continue;
+		if (mX >= p.sizeX[0] || mY >= p.sizeY[0] || mZ > p.sizeZ[0] || mX < 0 || mY < 0 || mZ < 0) continue;
 		//Can't brush the ground
-		if (paramType != PGROUND && mY <= GHeight[mX + mZ * p.sizeX]) continue;
+		if (paramType != PGROUND && mY <= GHeight[mX + mZ * p.sizeX[0]]) continue;
 
 		//For directional value
 		float value1 = applyValue;
@@ -1945,14 +1950,14 @@ __device__ bool setGround(simParams p, const int* GHeight, int* groundHeight, co
 {
 	if (isOutside(p, x, y, z)) return false;
 
-	if (eraseGround && y <= GHeight[x + z * p.sizeX])
+	if (eraseGround && y <= GHeight[x + z * p.sizeX[0]])
 	{
-		int oldVal = atomicMin(&groundHeight[x + z * p.sizeX], y);
+		int oldVal = atomicMin(&groundHeight[x + z * p.sizeX[0]], y);
 		return true;
 	}
-	else if (!eraseGround && y > GHeight[x + z * p.sizeX])
+	else if (!eraseGround && y > GHeight[x + z * p.sizeX[0]])
 	{
-		int oldVal = atomicMax(&groundHeight[x + z * p.sizeX], y);
+		int oldVal = atomicMax(&groundHeight[x + z * p.sizeX[0]], y);
 		return true;
 	}
 	return false;
@@ -1964,12 +1969,12 @@ __global__ void compareAndResetValuesOutGround(simParams p, const int* oldGround
 	const int x = threadIdx.x;
 	const int y = blockIdx.x;
 
-	if (x >= p.sizeX || y >= p.sizeY) return;
+	if (x >= p.sizeX[0] || y >= p.sizeY[0]) return;
 
-	for (int z = 0; z < p.sizeZ; z++)
+	for (int z = 0; z < p.sizeZ[0]; z++)
 	{
 		const int idx = getIdx(p, x, y, z);
-		const int idxG = x + z * p.sizeX;
+		const int idxG = x + z * p.sizeX[0];
 
 		//return if Y is not at in between the old and new ground height
 
@@ -2000,9 +2005,9 @@ __global__ void resetVelPressProj(simParams p, const int* GHeight, const Neigh* 
 	int z = 0;
 	int idx = getIdx(p, x, y, z);
 
-	if (x >= p.sizeX || y >= p.sizeY || z >= p.sizeZ) return;
+	if (x >= p.sizeX[0] || y >= p.sizeY[0] || z >= p.sizeZ[0]) return;
 
-	for (z = 0; z < p.sizeZ; z++)
+	for (z = 0; z < p.sizeZ[0]; z++)
 	{
 		if (isGroundGPU(p, GHeight, x, y, z)) return;
 		idx = getIdx(p, x, y, z);
@@ -2042,7 +2047,7 @@ __forceinline__ __device__ bool isGroundLevel(simParams p, const int* GHeight, c
 		return true;
 	}
 
-	return y == (GHeight[x + z * p.sizeZ] + 1);
+	return y == (GHeight[x + z * p.sizeZ[0]] + 1);
 }
 
 //Usage of threads
@@ -2055,12 +2060,12 @@ __forceinline__ __device__ bool isGroundGPU(simParams p, const int* GHeight, con
 	{
 		return true;
 	}
-	return y <= GHeight[x + z * p.sizeX];
+	return y <= GHeight[x + z * p.sizeX[0]];
 }
 
 __forceinline__ __device__ bool isGroundGPU(simParams p, const int* GHeight, const int x, const int y, const int z)
 {
-	return y <= GHeight[x + z * p.sizeX];
+	return y <= GHeight[x + z * p.sizeX[0]];
 }
 
 __global__ void setToDefault(simParams p, const int* GHeight, float* array, const float* defaultValue)
@@ -2070,9 +2075,9 @@ __global__ void setToDefault(simParams p, const int* GHeight, float* array, cons
 	int z = 0;
 	int idx = getIdx(p, x, y, z);
 
-	if (x >= p.sizeX || y >= p.sizeY || z >= p.sizeZ) return;
+	if (x >= p.sizeX[0] || y >= p.sizeY[0] || z >= p.sizeZ[0]) return;
 
-	for (z = 0; z < p.sizeZ; z++)
+	for (z = 0; z < p.sizeZ[0]; z++)
 	{
 		if (isGroundGPU(p, GHeight, x, y, z)) return;
 		idx = getIdx(p, x, y, z);
@@ -2092,12 +2097,12 @@ __device__ float getVelAtIdx(simParams p, const Neigh neigh, const boundsEnv& bo
 		return (vel[idx] + fillNeighbourData(p, neigh.getOutsideLeft(), neigh.getEnvTypeLeft(), bounds, vel, idx, -1, customData)) * 0.5f;
 	case UP:
 	case DOWN:
-		return (vel[idx] + fillNeighbourData(p, neigh.getOutsideDown(), neigh.getEnvTypeDown(), bounds, vel, idx, -p.sizeX, customData)) * 0.5f;
+		return (vel[idx] + fillNeighbourData(p, neigh.getOutsideDown(), neigh.getEnvTypeDown(), bounds, vel, idx, -p.sizeX[0], customData)) * 0.5f;
 	case FORWARD:
 	case BACKWARD:
-		return (vel[idx] + fillNeighbourData(p, neigh.getOutsideBackward(), neigh.getEnvTypeBackward(), bounds, vel, idx, -p.sizeX * p.sizeY, customData)) * 0.5f;
+		return (vel[idx] + fillNeighbourData(p, neigh.getOutsideBackward(), neigh.getEnvTypeBackward(), bounds, vel, idx, -p.sizeX[0] * p.sizeY[0], customData)) * 0.5f;
 	default:
-		return (vel[idx] + fillNeighbourData(p, neigh.getOutsideBackward(), neigh.getEnvTypeBackward(), bounds, vel, idx, -p.sizeX * p.sizeY, customData)) * 0.5f;
+		return (vel[idx] + fillNeighbourData(p, neigh.getOutsideBackward(), neigh.getEnvTypeBackward(), bounds, vel, idx, -p.sizeX[0] * p.sizeY[0], customData)) * 0.5f;
 	}
 }
 
@@ -2110,7 +2115,7 @@ __device__ __forceinline__ void fillSharedNeigh(simParams p, const Neigh neigh, 
 	const int sharedBlockWidth = blockDim.x + 2;
 	int sharedIdx = threadIdx.x + 1 + (threadIdx.y + 1) * sharedBlockWidth;
 
-	if (x >= p.sizeX || y >= p.sizeY || z >= p.sizeZ) return; // Able to return due to no syncing
+	if (x >= p.sizeX[0] || y >= p.sizeY[0] || z >= p.sizeZ[0]) return; // Able to return due to no syncing
 
 	// We can already set our current cell, if it is ground, we set our data based on our ground condition
 	if (neigh.getEnvTypeCurrent() == GROUND)
@@ -2129,9 +2134,9 @@ __device__ __forceinline__ void fillSharedNeigh(simParams p, const Neigh neigh, 
 	// Now we need to make sure the threads at the edges set the values of their neighbours
 
 	const bool left = threadIdx.x == 0 || x == 0;
-	const bool right = threadIdx.x == blockDim.x - 1 || x == p.sizeX - 1;
+	const bool right = threadIdx.x == blockDim.x - 1 || x == p.sizeX[0] - 1;
 	const bool down = threadIdx.y == 0 || y == 0;
-	const bool up = threadIdx.y == blockDim.y - 1 || y == p.sizeY - 1;
+	const bool up = threadIdx.y == blockDim.y - 1 || y == p.sizeY[0] - 1;
 
 	// At left side of block
 	if (left)
@@ -2144,11 +2149,11 @@ __device__ __forceinline__ void fillSharedNeigh(simParams p, const Neigh neigh, 
 	}
 	if (down)
 	{
-		sharedData[sharedIdx - sharedBlockWidth] = fillNeighbourData(p, neigh.getOutsideDown(), neigh.getEnvTypeDown(), bounds, data, idx, -p.sizeX, customDataVal);
+		sharedData[sharedIdx - sharedBlockWidth] = fillNeighbourData(p, neigh.getOutsideDown(), neigh.getEnvTypeDown(), bounds, data, idx, -p.sizeX[0], customDataVal);
 	}
 	if (up)
 	{
-		sharedData[sharedIdx + sharedBlockWidth] = fillNeighbourData(p, neigh.getOutsideUp(), neigh.getEnvTypeUp(), bounds, data, idx, p.sizeX, customDataVal, up);
+		sharedData[sharedIdx + sharedBlockWidth] = fillNeighbourData(p, neigh.getOutsideUp(), neigh.getEnvTypeUp(), bounds, data, idx, p.sizeX[0], customDataVal, up);
 	}
 
 	
@@ -2157,19 +2162,19 @@ __device__ __forceinline__ void fillSharedNeigh(simParams p, const Neigh neigh, 
 	if (left && down)
 	{
 		// Make sure to set outside value to true if one of the neighbours are outside
-		sharedData[sharedIdx - 1 - sharedBlockWidth] = fillNeighbourData(p, neigh.getOutsideDown() || neigh.getOutsideLeft(), neigh.getEnvTypeDown(), bounds, data, idx, -1 - p.sizeX, customDataVal);
+		sharedData[sharedIdx - 1 - sharedBlockWidth] = fillNeighbourData(p, neigh.getOutsideDown() || neigh.getOutsideLeft(), neigh.getEnvTypeDown(), bounds, data, idx, -1 - p.sizeX[0], customDataVal);
 	}
 	else if (right && down)
 	{
-		sharedData[sharedIdx + 1 - sharedBlockWidth] = fillNeighbourData(p, neigh.getOutsideDown() || neigh.getOutsideRight(), neigh.getEnvTypeDown(), bounds, data, idx, 1 - p.sizeX, customDataVal);
+		sharedData[sharedIdx + 1 - sharedBlockWidth] = fillNeighbourData(p, neigh.getOutsideDown() || neigh.getOutsideRight(), neigh.getEnvTypeDown(), bounds, data, idx, 1 - p.sizeX[0], customDataVal);
 	}
 	else if (right && up)
 	{
-		sharedData[sharedIdx + 1 + sharedBlockWidth] = fillNeighbourData(p, neigh.getOutsideUp() || neigh.getOutsideRight(), neigh.getEnvTypeRight(), bounds, data, idx, 1 + p.sizeX, customDataVal);
+		sharedData[sharedIdx + 1 + sharedBlockWidth] = fillNeighbourData(p, neigh.getOutsideUp() || neigh.getOutsideRight(), neigh.getEnvTypeRight(), bounds, data, idx, 1 + p.sizeX[0], customDataVal);
 	}
 	else if (left && up)
 	{
-		sharedData[sharedIdx - 1 + sharedBlockWidth] = fillNeighbourData(p, neigh.getOutsideUp() || neigh.getOutsideLeft(), neigh.getEnvTypeLeft(), bounds, data, idx, -1 + p.sizeX, customDataVal);
+		sharedData[sharedIdx - 1 + sharedBlockWidth] = fillNeighbourData(p, neigh.getOutsideUp() || neigh.getOutsideLeft(), neigh.getEnvTypeLeft(), bounds, data, idx, -1 + p.sizeX[0], customDataVal);
 	}
 }
 
@@ -2312,7 +2317,7 @@ __device__ __forceinline__ float getValueExtraForwardBackward(simParams p, const
 	}
 	else
 	{
-		idx += forward ? p.sizeX * p.sizeY : -p.sizeX * p.sizeY;
+		idx += forward ? p.sizeX[0] * p.sizeY[0] : -p.sizeX[0] * p.sizeY[0];
 
 		// We now can safely access the next forward
 		if (forward ? neigh[idx].getOutsideForward() : neigh[idx].getOutsideBackward())
@@ -2351,7 +2356,7 @@ __device__ __forceinline__ float getValueExtraForwardBackward(simParams p, const
 			}
 			else
 			{
-				idx += forward ? p.sizeX * p.sizeY : -p.sizeX * p.sizeY;
+				idx += forward ? p.sizeX[0] * p.sizeY[0] : -p.sizeX[0] * p.sizeY[0];
 
 				// Finally, the target is inside and not ground
 				return data[idx];

@@ -1,22 +1,130 @@
 ﻿#pragma once
 #include <stdint.h> // uint32_t
+#include <stdio.h>
 
 //Do we want to use the GPU? (CPU is very unstable if not working at all atm)
 #define USE_GPU 1
 
 
-// Holds data of the simulation size
+#define MAXGRIDRESOLUTIONS 4
+// Holds data of the simulation sizes
+// If multiple resolutions, the 'grand parent' is the main grid parent with children following
 struct simParams
 {
-	int sizeX, sizeY, sizeZ;
-	int size;
-	int sizeGround;
-	float voxelSize;
+	int grids; // Total amount of grid resolutions
+	float voxelSize; // Voxel size of grand parent
 
-	// Initializes data in the struct
-	static simParams create(int x, int y, int z, float _voxelSize)
+	int resDecrease[MAXGRIDRESOLUTIONS]; // Resolution decrease starting from the grand parent
+
+	// X and Z resolution starting from parent to children
+	int sizeX[MAXGRIDRESOLUTIONS];
+	int sizeZ[MAXGRIDRESOLUTIONS];
+	int sizeY[MAXGRIDRESOLUTIONS]; // Size Y gets adjusted automatically to be the same height as the grand parent
+
+	// Sizes of each grid
+	int size[MAXGRIDRESOLUTIONS];
+	int sizeGround[MAXGRIDRESOLUTIONS];
+	int totalSize;
+	int totalGroundSize;
+
+	// Offset on the X and Z axis for each grid. The grand parent does not have an offset.
+	int offsetX[MAXGRIDRESOLUTIONS];
+	int offsetZ[MAXGRIDRESOLUTIONS];
+
+	// Get filled when calculating for block and grid dimensions
+	int gridDimX[MAXGRIDRESOLUTIONS];
+	int gridDimY[MAXGRIDRESOLUTIONS];
+	int gridDimZ[MAXGRIDRESOLUTIONS];
+
+
+	// Creates instance and initializes the grand parent
+	static simParams create(float _voxelsize, int x, int y, int z)
 	{
-		return { x, y, z, x * y * z, x * z, _voxelSize };
+		return { 1, _voxelsize, {0}, {x}, {y}, {z}, {x * y * z}, {x * z}, {x * y * z}, {x * z}, {0}, {0}, {0}, {0}, {0} };
+	}
+	// Add new grid resolution inside the current grid
+	void addResolution(int resolutionDecrease, int x, int z, int _offsetX, int _offsetZ)
+	{
+		// TODO: add more checks
+		int invalid = 0;
+
+		if (grids == 0) invalid = 1;
+		if (grids >= MAXGRIDRESOLUTIONS) invalid = 2;
+
+		if (invalid == 0)
+		{
+			// New size must be dividible with the parent so its alligned correctly
+			if (x % sizeX[grids - 1] != 0) invalid = 3;
+			else if (z % sizeZ[grids - 1] != 0) invalid = 3;
+			// Room for 'Ghost' cells (or the relaxation zone)
+			else if (x <= resolutionDecrease * 2) invalid = 4;
+			else if (z <= resolutionDecrease * 2) invalid = 4;
+			// The new size cant be bigger than the parent size, leaving at least 2 spaces on both sides
+			else if (x / resolutionDecrease - 2 < 0 || z / resolutionDecrease - 2 < 0) invalid = 5;
+		}
+
+
+		if (invalid == 0)
+		{
+			resDecrease[grids] = resolutionDecrease;
+			sizeX[grids] = x;
+			sizeZ[grids] = z;
+			sizeY[grids] = sizeY[grids - 1] * resolutionDecrease; // For now we increases Y size, TODO: y size always stay the same resolution. 
+		}
+
+		// Resolution check
+		float vSize = voxelSize;
+		for (int i = 1; i < grids; i++)
+		{
+			voxelSize /= resDecrease[i];
+		}
+		if (vSize < 1.0f) invalid = 6;
+
+		if (invalid == 0 && (_offsetX == 0 || _offsetZ == 0 ||
+			_offsetX >= sizeX[grids - 1] - (x / resolutionDecrease) ||
+			_offsetZ >= sizeZ[grids - 1] - (z / resolutionDecrease))) invalid = 7;
+
+		if (invalid == 0)
+		{
+			size[grids] = x * sizeY[grids] * z;
+			sizeGround[grids] = x * z;
+
+			totalSize += size[grids];
+			totalGroundSize += sizeGround[grids];
+
+			offsetX[grids] = _offsetX;
+			offsetZ[grids] = _offsetZ;
+
+			grids++;
+		}
+
+		// Switch on error
+		switch (invalid)
+		{
+		case 1:
+			printf("CLOUDLIB WARNING: addResolution(): grid was not created yet, make sure to use the 'create()' function first\n");
+			break;
+		case 2:
+			printf("CLOUDLIB WARNING: addResolution(): unable to add another resolution, max resolutions reached\n");
+			break;
+		case 3:
+			printf("CLOUDLIB WARNING: addResolution(): Size xz is not dividible with previous grid, causing remaining cells\n");
+			break;
+		case 4:
+			printf("CLOUDLIB WARNING: addResolution(): Size xz is not large enough for a relaxation zone\n");
+			break;
+		case 5:
+			printf("CLOUDLIB WARNING: addResolution(): New grid is too big\n");
+			break;
+		case 6:
+			printf("CLOUDLIB WARNING: addResolution(): Too many resolution decreases, resolution is too small\n");
+			break;
+		case 7:
+			printf("CLOUDLIB WARNING: addResolution(): The offset of the new grid is invalid\n");
+			break;
+		default:
+			break;
+		}
 	}
 };
 
@@ -44,7 +152,10 @@ struct simParams
 //Storage array for setting boundary conditions easier.
 enum envType : unsigned char
 {
-	SKY, GROUND
+	SKY = 0 << 0,
+	GROUND = 1 << 0,
+	GHOST = 1 << 1, // In-between cells of nested grids
+	// NOTE: if adding 1 more type, 'Neigh' needs to increase in size
 };
 
 struct singleNeigh

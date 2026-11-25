@@ -29,7 +29,7 @@ cloudHub::cloudHub()
     // We may already create input context
     m_inputObj = new newInput;
     m_cloudCameraObj = new cameraControl();
-    m_params = new simParams(simParams::create(32, 32, 32, 200.0f));
+    m_params = new simParams(simParams::create(64.0f, 64, 64, 64.0f));
 }
 
 void cloudHub::initialize(bool customImGuiStyle)
@@ -92,7 +92,7 @@ void cloudHub::copySimulateDataToRenderData()
 
 void cloudHub::resize(int x, int y, int z, float voxelSize, resizeFlag flag)
 {
-    *m_params = simParams::create(x, y, z, voxelSize);
+    *m_params = simParams::create(voxelSize, x, y, z);
 
     // TODO: re allocate all data in simulation
 

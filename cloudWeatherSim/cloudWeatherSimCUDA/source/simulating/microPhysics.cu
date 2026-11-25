@@ -1107,16 +1107,16 @@ __global__ void calculateEnvMicroPhysicsGPU(simParams p, float* _Qv, float* _Qw,
     int idxsData = threadIdx.x + threadIdx.y * blockDim.x;
 
     bool valid = true;
-    if (x >= p.sizeX || y >= p.sizeY || z >= p.sizeZ) // Avoid outside access
+    if (x >= p.sizeX[0] || y >= p.sizeY[0] || z >= p.sizeZ[0]) // Avoid outside access
     {
         x = 0; y = 0; idx = 0; // Set every index to 0
         valid = false;
     }
 
-    for (; z < fminf(p.sizeZ, ceilf(float(blockIdx.z + 1) * invBlockSpreadDepth)); z++)
+    for (; z < fminf(p.sizeZ[0], ceilf(float(blockIdx.z + 1) * invBlockSpreadDepth)); z++)
     {
         idx = getIdx(p, x, y, z);
-        const int idxG = x + z * p.sizeX;
+        const int idxG = x + z * p.sizeX[0];
 
         if (graphActive)
         {
@@ -1491,11 +1491,11 @@ __global__ void calculateGroundMicroPhysicsGPU(simParams p, float* _Qrs, float* 
 {
     const int x = threadIdx.x;
     const int z = blockIdx.x;
-    const int idxG = x + z * p.sizeX;
+    const int idxG = x + z * p.sizeX[0];
     const int y = _groundHeight[idxG]; //Y to use index on environment variables
     const int idx = getIdx(p, x, y + 1, z);
 
-    if (x >= p.sizeX || y >= p.sizeY || z >= p.sizeZ) return; // Able to return due to no syncing
+    if (x >= p.sizeX[0] || y >= p.sizeY[0] || z >= p.sizeZ[0]) return; // Able to return due to no syncing
 
     float PGREVP{ 0.0f }; // Evaporation of (rain)water.
     //float PSDEP{ 0.0f }; // TODO: Depositional growth of snow 
@@ -1615,11 +1615,11 @@ __global__ void calculatePrecipHittingGroundMicroPhysicsGPU(simParams p, float* 
 {
     const int x = threadIdx.x;
     const int z = blockIdx.x;
-    const int idxG = x + z * p.sizeX;
+    const int idxG = x + z * p.sizeX[0];
     const int y = _groundHeight[idxG]; //Y to use index on environment variables
     const int idx = getIdx(p, x, y + 1, z);
 
-    if (x >= p.sizeX || y >= p.sizeY || z >= p.sizeZ) return; // Able to return due to no syncing
+    if (x >= p.sizeX[0] || y >= p.sizeY[0] || z >= p.sizeZ[0]) return; // Able to return due to no syncing
 
     float PGRFR{ 0.0f }; // Freezing rain hitting the ground forming ice
 
