@@ -112,6 +112,7 @@ void cloudMenu::update()
             break;
 
         case gameStates::SKEWT_CREATOR:
+        case gameStates::GRID_SETUP:
         case gameStates::SIMULATION:
         case gameStates::VIEW_SIMULATION:
 

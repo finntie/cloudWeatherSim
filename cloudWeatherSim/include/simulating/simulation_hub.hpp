@@ -9,6 +9,7 @@ class skewTFile;
 class cloudFile;
 class environmentGPU;
 class simulationEditor;
+class setupMenu;
 enum class gameStates;
 struct simParams;
 
@@ -48,6 +49,7 @@ private:
     skewTFile* m_skewTFileObj{nullptr};
     environmentGPU* m_environmentObj{nullptr};
     simulationEditor* m_simulationEditObj{nullptr};
+    setupMenu* m_setupMenuObj{nullptr};
 
     gameStates* m_gameState{nullptr};
 

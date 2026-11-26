@@ -5,7 +5,7 @@
 #include "simulating/skewTFile.h"
 #include "simulating/environment.cuh"
 #include "simulating/simulationEditor.hpp"
-
+#include "simulating/setup_menu.hpp"
 
 #include "cloud_hub.hpp"
 #include "cloud_menu_hub.hpp"
@@ -24,6 +24,7 @@ simulationHub::simulationHub(const simParams& params) : m_params(params)
     m_skewTFileObj = new skewTFile();
     m_environmentObj = new environmentGPU(params);
     m_simulationEditObj = new simulationEditor(params);
+    m_setupMenuObj = new setupMenu();
 
 }
 
@@ -36,6 +37,7 @@ simulationHub::~simulationHub()
         simThread.join();
     }
 
+    delete m_setupMenuObj;
     delete m_simulationEditObj;
     delete m_environmentObj;
     delete m_skewTFileObj;
@@ -55,6 +57,11 @@ void simulationHub::updateSimulation(float dt)
             case gameStates::SKEWT_CREATOR:
 
                 m_skewTMakerObj->update(dt);
+
+                break;
+            case gameStates::GRID_SETUP:
+
+                m_setupMenuObj->update();
 
                 break;
             case gameStates::SIMULATION:
@@ -178,11 +185,23 @@ void simulationHub::simulationPanel(gameStates& currentState, const bool initSta
         case gameStates::SKEWT_CREATOR:
             if (m_skewTMakerObj->skewTMakerPanel(m_params))
             {
+                setInitState = true;
+                currentState = gameStates::GRID_SETUP;
+            }
+            break;
+
+        case gameStates::GRID_SETUP:
+
+            if (initState) m_setupMenuObj->initialize();
+
+            if (m_setupMenuObj->setupPanel())
+            {
                 m_simulationEditObj->init();
                 setInitState = true;
                 currentState = gameStates::SIMULATION;
             }
             break;
+
         case gameStates::SIMULATION:
             if (initState)
             {

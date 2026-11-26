@@ -40,7 +40,7 @@ struct simParams
 	// Creates instance and initializes the grand parent
 	static simParams create(float _voxelsize, int x, int y, int z)
 	{
-		return { 1, _voxelsize, {0}, {x}, {y}, {z}, {x * y * z}, {x * z}, {x * y * z}, {x * z}, {0}, {0}, {0}, {0}, {0} };
+		return { 1, _voxelsize, {1}, {x}, {y}, {z}, {x * y * z}, {x * z}, {x * y * z}, {x * z}, {0}, {0}, {0}, {0}, {0} };
 	}
 	// Add new grid resolution inside the current grid
 	void addResolution(int resolutionDecrease, int x, int z, int _offsetX, int _offsetZ)
@@ -53,9 +53,9 @@ struct simParams
 
 		if (invalid == 0)
 		{
-			// New size must be dividible with the parent so its alligned correctly
-			if (x % sizeX[grids - 1] != 0) invalid = 3;
-			else if (z % sizeZ[grids - 1] != 0) invalid = 3;
+			// New size must be dividible with the resolution Decrease so its alligned correctly
+			if (x % resolutionDecrease != 0) invalid = 3;
+			else if (z % resolutionDecrease != 0) invalid = 3;
 			// Room for 'Ghost' cells (or the relaxation zone)
 			else if (x <= resolutionDecrease * 2) invalid = 4;
 			else if (z <= resolutionDecrease * 2) invalid = 4;
@@ -74,9 +74,9 @@ struct simParams
 
 		// Resolution check
 		float vSize = voxelSize;
-		for (int i = 1; i < grids; i++)
+		for (int i = 1; i < grids + 1; i++)
 		{
-			voxelSize /= resDecrease[i];
+			vSize /= resDecrease[i];
 		}
 		if (vSize < 1.0f) invalid = 6;
 
@@ -124,6 +124,17 @@ struct simParams
 			break;
 		default:
 			break;
+		}
+	}
+	// Re-calculate the size of the grid
+	void recalcSize()
+	{
+		totalSize = 0;
+		totalGroundSize = 0;
+		for (int i = 0; i < grids; i++)
+		{
+			totalSize += size[i];
+			totalGroundSize += sizeGround[i];
 		}
 	}
 };

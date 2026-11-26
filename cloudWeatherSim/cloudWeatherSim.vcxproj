@@ -223,6 +223,7 @@
     <ClCompile Include="source\rendering\shapes_gl.cpp" />
     <ClCompile Include="source\simulating\dataClass.cpp" />
     <ClCompile Include="source\simulating\readTable.cpp" />
+    <ClCompile Include="source\simulating\setup_menu.cpp" />
     <ClCompile Include="source\simulating\simulationEditor.cpp" />
     <ClCompile Include="source\simulating\simulation_hub.cpp" />
     <ClCompile Include="source\simulating\skewTer.cpp" />
@@ -236,6 +237,7 @@
     <ClInclude Include="include\cloud_hub.hpp" />
     <ClInclude Include="include\cloud_menu_hub.hpp" />
     <ClInclude Include="include\cloud_weather_sim.hpp" />
+    <ClInclude Include="include\simulating\setup_menu.hpp" />
     <ClInclude Include="shared\config.hpp" />
     <ClInclude Include="include\external\zip_file.hpp" />
     <ClInclude Include="shared\geometry.hpp" />
